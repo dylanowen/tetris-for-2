@@ -1,0 +1,12 @@
+(
+    axes: {},
+    actions: {
+        Left: [ [Key(Left)] ],
+        Right: [ [Key(Right)] ],
+        RotateClockwise: [ [Key(Up)] ],
+        DropSoft: [ [Key(Down)] ],
+        DropHard: [ [Key(Space)] ],
+
+        Debug: [ [Key(F9)] ],
+    },
+)
