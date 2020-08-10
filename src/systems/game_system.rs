@@ -100,16 +100,27 @@ impl TetrisGameSystem {
 
 impl<'s> System<'s> for TetrisGameSystem {
     // #[allow(clippy::type_complexity)]
-    type SystemData = (WriteStorage<'s, Tint>, ReadStorage<'s, SpriteRender>);
+    type SystemData = (
+        WriteStorage<'s, Tint>,
+        // TODO, we're not using using this, why did we need to import it?
+        ReadStorage<'s, SpriteRender>,
+    );
 
     fn run(&mut self, (mut tint_storage, _): Self::SystemData) {
         let mut any_board_changes = false;
         while let Ok(event) = self.in_rx.try_recv() {
             let UpdatedState {
                 board_changed,
-                events: _,
+                events,
             } = self.receive(event);
             any_board_changes |= board_changed;
+
+            // forward along all the events we found
+            events.into_iter().for_each(|e| {
+                self.out_tx
+                    .send(e)
+                    .expect("We should always be able to send this")
+            });
         }
 
         if any_board_changes {
@@ -132,6 +143,8 @@ impl<'s> System<'s> for TetrisGameSystem {
 pub struct GameChannels {
     pub player_in: Sender<GameRxEvent>,
     pub player_out: Receiver<GameTxEvent>,
+    pub opponent_in: Sender<GameRxEvent>,
+    pub opponent_out: Receiver<GameTxEvent>,
 }
 
 impl SetupHandler<GameChannels> for GameChannels {
@@ -152,14 +165,11 @@ impl<'a, 'b> SystemBundle<'a, 'b> for GameSystemBundle {
         let (player_in_tx, player_in_rx) = channel::unbounded();
         let (player_out_tx, player_out_rx) = channel::unbounded();
 
-        let channels = GameChannels {
-            player_in: player_in_tx,
-            player_out: player_out_rx,
-        };
-        world.insert(channels);
+        let margin = PIXEL_DIMENSION / 2. + 20.;
 
         builder.add(
             TetrisGameSystemDesc {
+                position: (margin, margin),
                 in_rx: player_in_rx,
                 out_tx: player_out_tx,
             }
@@ -168,18 +178,40 @@ impl<'a, 'b> SystemBundle<'a, 'b> for GameSystemBundle {
             &[KnownSystems::SpriteLoader.into()],
         );
 
+        let (opponent_in_tx, opponent_in_rx) = channel::unbounded();
+        let (opponent_out_tx, opponent_out_rx) = channel::unbounded();
+
+        builder.add(
+            TetrisGameSystemDesc {
+                position: ((PIXEL_DIMENSION * BOARD_WIDTH as f32) + margin * 2., margin),
+                in_rx: opponent_in_rx,
+                out_tx: opponent_out_tx,
+            }
+            .build(world),
+            "game_system_opponent",
+            &[KnownSystems::SpriteLoader.into()],
+        );
+
+        let channels = GameChannels {
+            player_in: player_in_tx,
+            player_out: player_out_rx,
+            opponent_in: opponent_in_tx,
+            opponent_out: opponent_out_rx,
+        };
+        world.insert(channels);
+
         Ok(())
     }
 }
 
 struct TetrisGameSystemDesc {
+    position: (f32, f32),
     in_rx: Receiver<GameRxEvent>,
     out_tx: Sender<GameTxEvent>,
 }
 
 impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
     fn build(self, world: &mut World) -> TetrisGameSystem {
-        debug!("loading");
         // setup data we need to initialize, but not actually run
         <ReadStorage<'a, SpriteRender> as SystemData>::setup(&mut *world);
 
@@ -189,8 +221,9 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
 
         let dummy_entity = world.create_entity().entity;
 
-        let offset_x = 30.;
-        let offset_y = 40.;
+        let (offset_x, offset_y) = self.position;
+
+        debug!("loading at {}, {}", offset_x, offset_y);
 
         let mut board_entities = [[dummy_entity; BOARD_HEIGHT]; BOARD_WIDTH];
         for x in 0..BOARD_WIDTH {

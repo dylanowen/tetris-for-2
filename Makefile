@@ -1,9 +1,7 @@
 SHELL:=/bin/bash
 
 .DEFAULT_GOAL := default
-.PHONY: format clippy lint shaders doc fix
-
-BIN=game
+.PHONY: format clippy lint doc fix
 
 format:
 	cargo fmt
@@ -14,23 +12,23 @@ clippy:
 lint: format clippy
 	@echo linting
 
-metal: lint
-	cargo run --features="metal" --bin="$(BIN)"
+build: lint
+	cargo build --features="metal"
 
-metal-release: lint
-	cargo run --release --features="metal,release" --bin="$(BIN)"
+release: lint
+	cargo build --release --features="metal,release"
 
-metal-profiler: lint
-	cargo run --release --features="metal,release,profiler" --bin="$(BIN)"
+profiler: lint
+	cargo build --release --features="metal,release,profiler"
 
-vulkan: lint
-	cargo run --features="vulkan" --bin="$(BIN)"
-
-vulkan-release: lint
-	cargo run --release --features="vulkan,release" --bin="$(BIN)"
-
-vulkan-profiler: lint
-	cargo run --release --features="vulkan,release,profiler" --bin="$(BIN)"
+#vulkan: lint
+#	cargo run --features="vulkan"
+#
+#vulkan-release: lint
+#	cargo run --release --features="vulkan,release"
+#
+#vulkan-profiler: lint
+#	cargo run --release --features="vulkan,release,profiler"
 
 doc:
 	-cargo doc --features="empty"

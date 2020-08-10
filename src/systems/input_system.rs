@@ -12,19 +12,19 @@ use crate::systems::utils::KnownSystem;
 use crate::systems::KnownSystems;
 
 #[derive(SystemDesc)]
-#[system_desc(name(ControlSystemDesc))]
-pub struct ControlSystem {
+#[system_desc(name(InputSystemDesc))]
+pub struct InputSystem {
     #[system_desc(event_channel_reader)]
     reader: ReaderId<AmethystInputEvent<GameInput>>,
 }
 
-impl ControlSystem {
+impl InputSystem {
     fn new(reader: ReaderId<AmethystInputEvent<GameInput>>) -> Self {
-        ControlSystem { reader }
+        InputSystem { reader }
     }
 }
 
-impl<'s> System<'s> for ControlSystem {
+impl<'s> System<'s> for InputSystem {
     type SystemData = (
         // get the input events
         ReadExpect<'s, GameChannels>,
@@ -49,9 +49,9 @@ impl<'s> System<'s> for ControlSystem {
     }
 }
 
-impl KnownSystem<'_> for ControlSystem {
+impl KnownSystem<'_> for InputSystem {
     fn name() -> KnownSystems {
-        KnownSystems::ControlSystem
+        KnownSystems::InputSystem
     }
 
     fn dependencies() -> &'static [KnownSystems] {
