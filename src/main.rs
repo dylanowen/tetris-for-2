@@ -1,21 +1,19 @@
+use std::net::TcpListener;
+
 use amethyst::core::frame_limiter::FrameRateLimitStrategy;
 use amethyst::core::TransformBundle;
 use amethyst::input::InputBundle;
+use amethyst::network::simulation::tcp::TcpNetworkBundle;
 use amethyst::renderer::plugins::RenderToWindow;
 use amethyst::renderer::types::DefaultBackend;
 use amethyst::renderer::RenderFlat2D;
 use amethyst::renderer::RenderingBundle;
 use amethyst::utils::application_root_dir;
 use amethyst::{Application, GameDataBuilder, LoggerConfig};
+use clap::{App, AppSettings, Arg, SubCommand};
 use log::info;
 use log::LevelFilter;
-use rmp_serde::{decode, encode};
 
-use amethyst::network::simulation::laminar::{LaminarNetworkBundle, LaminarSocket};
-use amethyst::network::simulation::tcp::TcpNetworkBundle;
-use clap::{App, AppSettings, Arg, SubCommand};
-use std::net::TcpListener;
-use tetris_for_two::events::{GameRxEvent, InputEvent};
 use tetris_for_two::input::GameInput;
 use tetris_for_two::sprite_loader::SpriteLoaderDesc;
 use tetris_for_two::systems::utils::WithKnownSystemDesc;
@@ -35,7 +33,7 @@ fn main() -> amethyst::Result<()> {
     let display_config_path = config_dir.join("display.ron");
     let key_bindings_path = config_dir.join("input.ron");
 
-    let matches = App::new("tft")
+    let matches = App::new("tetris-for-two")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(SubCommand::with_name("server").arg(Arg::with_name("address").required(true)))
         .subcommand(SubCommand::with_name("client").arg(Arg::with_name("address").required(true)))

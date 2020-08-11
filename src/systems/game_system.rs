@@ -19,8 +19,17 @@ use crate::sprite_loader::PIXEL_DIMENSION as ACTUAL_PIXEL_DIMENSION;
 use crate::systems::game_system::BoardPixel::Filled;
 use crate::systems::KnownSystems;
 
-const BOARD_WIDTH: usize = 10;
-const BOARD_HEIGHT: usize = 20;
+const PLAYABLE_WIDTH: usize = 10;
+const PLAYABLE_HEIGHT: usize = 20;
+
+const BORDER_WIDTH: usize = 1;
+const STAGING_HEIGHT: usize = 2;
+
+const VISIBLE_WIDTH: usize = PLAYABLE_WIDTH + BORDER_WIDTH + BORDER_WIDTH;
+const VISIBLE_HEIGHT: usize = PLAYABLE_HEIGHT + BORDER_WIDTH + BORDER_WIDTH;
+
+const BOARD_WIDTH: usize = VISIBLE_WIDTH;
+const BOARD_HEIGHT: usize = VISIBLE_HEIGHT + STAGING_HEIGHT;
 
 const PIXEL_DIMENSION: f32 = 50.;
 
@@ -41,7 +50,7 @@ impl UpdatedState {
 pub struct TetrisGameSystem {
     piece: Option<(usize, usize)>,
     board_state: [[BoardPixel; BOARD_HEIGHT]; BOARD_WIDTH],
-    board_entities: [[Entity; BOARD_HEIGHT]; BOARD_WIDTH],
+    board_entities: [[Entity; VISIBLE_HEIGHT]; VISIBLE_WIDTH],
     in_rx: Receiver<GameRxEvent>,
     out_tx: Sender<GameTxEvent>,
 }
@@ -124,8 +133,8 @@ impl<'s> System<'s> for TetrisGameSystem {
         }
 
         if any_board_changes {
-            for x in 0..BOARD_WIDTH {
-                for y in 0..BOARD_HEIGHT {
+            for x in 0..VISIBLE_WIDTH {
+                for y in 0..VISIBLE_HEIGHT {
                     let entity = self.board_entities[x][y];
                     let tint_color = self.board_state[x][y].into();
 
@@ -221,41 +230,71 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
 
         let dummy_entity = world.create_entity().entity;
 
-        let (offset_x, offset_y) = self.position;
+        let (x_offset, y_offset) = self.position;
 
-        debug!("loading at {}, {}", offset_x, offset_y);
+        debug!("loading at {}, {}", x_offset, y_offset);
 
-        let mut board_entities = [[dummy_entity; BOARD_HEIGHT]; BOARD_WIDTH];
-        for x in 0..BOARD_WIDTH {
+        let mut board_state = [[BoardPixel::Empty; BOARD_HEIGHT]; BOARD_WIDTH];
+        let mut board_entities = [[dummy_entity; VISIBLE_HEIGHT]; VISIBLE_WIDTH];
+        // build our side borders
+        for &x in &[0, BOARD_WIDTH - 1] {
             for y in 0..BOARD_HEIGHT {
-                let mut transform = Transform::default();
-                transform.set_translation_xyz(
-                    offset_x + (x as f32 * PIXEL_DIMENSION),
-                    offset_y + (y as f32 * PIXEL_DIMENSION),
-                    0.,
+                board_state[x][y] = BoardPixel::Filled(PieceColor::Gray)
+            }
+        }
+        // build our bottom border
+        for x in 1..BOARD_WIDTH - 1 {
+            board_state[x][0] = BoardPixel::Filled(PieceColor::Gray)
+        }
+
+        for x in 0..VISIBLE_WIDTH {
+            for y in 0..VISIBLE_HEIGHT {
+                board_entities[x][y] = create_board_entity(
+                    x,
+                    y,
+                    x_offset,
+                    y_offset,
+                    board_state[x][y],
+                    &pixel_sprite,
+                    world,
                 );
-                let scale = PIXEL_DIMENSION / ACTUAL_PIXEL_DIMENSION;
-                transform.set_scale(Vector3::new(scale, scale, scale));
-
-                let entity = world
-                    .create_entity()
-                    .with(pixel_sprite.clone())
-                    .with(transform)
-                    .with(Tint(BoardPixel::Empty.into()))
-                    .build();
-
-                board_entities[x][y] = entity;
             }
         }
 
         TetrisGameSystem {
             piece: Some((5, 5)),
-            board_state: [[BoardPixel::Empty; BOARD_HEIGHT]; BOARD_WIDTH],
+            board_state,
             board_entities,
             in_rx: self.in_rx,
             out_tx: self.out_tx,
         }
     }
+}
+
+fn create_board_entity(
+    x: usize,
+    y: usize,
+    offset_x: f32,
+    offset_y: f32,
+    board_pixel: BoardPixel,
+    pixel_sprite: &SpriteRender,
+    world: &mut World,
+) -> Entity {
+    let mut transform = Transform::default();
+    transform.set_translation_xyz(
+        offset_x + (x as f32 * PIXEL_DIMENSION),
+        offset_y + (y as f32 * PIXEL_DIMENSION),
+        0.,
+    );
+    let scale = PIXEL_DIMENSION / ACTUAL_PIXEL_DIMENSION;
+    transform.set_scale(Vector3::new(scale, scale, scale));
+
+    world
+        .create_entity()
+        .with(pixel_sprite.clone())
+        .with(transform)
+        .with(Tint(board_pixel.into()))
+        .build()
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -288,6 +327,9 @@ impl Into<Srgba> for BoardPixel {
             BoardPixel::Filled(PieceColor::Magenta) => {
                 Srgba::new(184. / 255., 2. / 255., 253. / 255., 1.0)
             }
+            BoardPixel::Filled(PieceColor::Gray) => {
+                Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0)
+            }
             BoardPixel::Empty => Srgba::new(0.05, 0.05, 0.05, 1.0),
         }
     }
@@ -302,4 +344,5 @@ enum PieceColor {
     Green,
     Red,
     Magenta,
+    Gray,
 }
