@@ -48,7 +48,7 @@ impl UpdatedState {
 }
 
 pub struct TetrisGameSystem {
-    piece: Option<(usize, usize)>,
+    piece: Option<Piece>,
     board_state: [[BoardPixel; BOARD_HEIGHT]; BOARD_WIDTH],
     board_entities: [[Entity; VISIBLE_HEIGHT]; VISIBLE_WIDTH],
     in_rx: Receiver<GameRxEvent>,
@@ -67,27 +67,22 @@ impl TetrisGameSystem {
     }
 
     fn handle_input(&mut self, event: InputEvent) -> UpdatedState {
-        if let Some((mut x, mut y)) = self.piece {
+        if let Some(mut piece) = self.piece.as_mut() {
             match event {
                 InputEvent::Left => {
-                    x -= 1;
-                    self.board_state[x][y] = Filled(PieceColor::LightBlue);
+                    piece.offset.0 -= 1;
                 }
                 InputEvent::Right => {
-                    x += 1;
-                    self.board_state[x][y] = Filled(PieceColor::DarkBlue);
+                    piece.offset.0 += 1;
                 }
                 InputEvent::RotateClockwise => {
-                    y += 1;
-                    self.board_state[x][y] = Filled(PieceColor::Orange);
+                    piece.offset.1 += 1;
                 }
                 InputEvent::DropSoft => {
-                    y -= 1;
-                    self.board_state[x][y] = Filled(PieceColor::Green);
+                    piece.offset.1 -= 1;
                 }
                 _ => (), // noop
             };
-            self.piece = Some((x, y));
 
             UpdatedState::rx_event(true, GameRxEvent::Input(event))
         } else {
@@ -96,6 +91,18 @@ impl TetrisGameSystem {
                 events: vec![],
             }
         }
+
+        // if let Some((mut x, mut y)) = self.piece {
+
+        //     self.piece = Some((x, y));
+        //
+        //     UpdatedState::rx_event(true, GameRxEvent::Input(event))
+        // } else {
+        //     UpdatedState {
+        //         board_changed: false,
+        //         events: vec![],
+        //     }
+        // }
     }
 
     fn tick(&self) -> UpdatedState {
@@ -143,6 +150,32 @@ impl<'s> System<'s> for TetrisGameSystem {
                         .expect("We should always have this entity");
 
                     tint.0 = tint_color;
+                }
+            }
+
+            if let Some(Piece {
+                offset,
+                ref bounding_box,
+                tetrimino,
+                orientation: _,
+            }) = self.piece
+            {
+                for y in 0..bounding_box.len() {
+                    for x in 0..bounding_box[y].len() {
+                        if bounding_box[y][x] {
+                            let board_x = x + offset.0;
+                            let board_y = y + offset.1;
+
+                            let entity = self.board_entities[board_x][board_y];
+                            let tint_color: Srgba = tetrimino.color().into();
+
+                            let tint = tint_storage
+                                .get_mut(entity)
+                                .expect("We should always have this entity");
+
+                            tint.0 = tint_color;
+                        }
+                    }
                 }
             }
         }
@@ -262,7 +295,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
         }
 
         TetrisGameSystem {
-            piece: Some((5, 5)),
+            piece: Some(Piece::new(Tetrimino::S, (5, 5))),
             board_state,
             board_entities,
             in_rx: self.in_rx,
@@ -297,6 +330,165 @@ fn create_board_entity(
         .build()
 }
 
+struct Piece {
+    offset: (usize, usize),
+    bounding_box: Vec<Vec<bool>>,
+    tetrimino: Tetrimino,
+    orientation: Orientation,
+}
+
+impl Piece {
+    fn new(tetrimino: Tetrimino, offset: (usize, usize)) -> Self {
+        Piece {
+            offset,
+            bounding_box: tetrimino.bounding_box(),
+            tetrimino,
+            orientation: Orientation::North,
+        }
+    }
+
+    fn rotate(&self, rotation: Rotation) -> Self {
+        todo!()
+    }
+
+    fn rotation_points(&self, rotation: Rotation) -> [(isize, isize); 5] {
+        match self.tetrimino {
+            Tetrimino::J | Tetrimino::L | Tetrimino::S | Tetrimino::T | Tetrimino::Z => {
+                match (self.orientation, rotation) {
+                    (Orientation::North, Rotation::Clockwise) => {
+                        [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)]
+                    }
+                    (Orientation::North, Rotation::CounterClockwise) => {
+                        [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)]
+                    }
+                    (Orientation::East, Rotation::Clockwise) => {
+                        [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)]
+                    }
+                    (Orientation::East, Rotation::CounterClockwise) => {
+                        [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)]
+                    }
+                    (Orientation::South, Rotation::Clockwise) => {
+                        [(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)]
+                    }
+                    (Orientation::South, Rotation::CounterClockwise) => {
+                        [(0, 0), (-1, 0), (-1, 1), (0, -2), (-1, -2)]
+                    }
+                    (Orientation::West, Rotation::Clockwise) => {
+                        [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)]
+                    }
+                    (Orientation::West, Rotation::CounterClockwise) => {
+                        [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)]
+                    }
+                }
+            }
+            Tetrimino::I => match (self.orientation, rotation) {
+                (Orientation::North, Rotation::Clockwise) => {
+                    [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)]
+                }
+                (Orientation::North, Rotation::CounterClockwise) => {
+                    [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)]
+                }
+                (Orientation::East, Rotation::Clockwise) => {
+                    [(0, 0), (-1, 0), (2, 0), (-1, 2), (2, -1)]
+                }
+                (Orientation::East, Rotation::CounterClockwise) => {
+                    [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)]
+                }
+                (Orientation::South, Rotation::Clockwise) => {
+                    [(0, 0), (2, 0), (-1, 0), (2, 1), (-1, -2)]
+                }
+                (Orientation::South, Rotation::CounterClockwise) => {
+                    [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)]
+                }
+                (Orientation::West, Rotation::Clockwise) => {
+                    [(0, 0), (1, 0), (-2, 0), (1, -2), (-2, 1)]
+                }
+                (Orientation::West, Rotation::CounterClockwise) => {
+                    [(0, 0), (-2, 0), (1, 0), (-2, -1), (1, 2)]
+                }
+            },
+            Tetrimino::O => [(0, 0); 5],
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum Tetrimino {
+    I,
+    J,
+    L,
+    O,
+    S,
+    T,
+    Z,
+}
+
+impl Tetrimino {
+    fn bounding_box(&self) -> Vec<Vec<bool>> {
+        match self {
+            Tetrimino::I => vec![
+                vec![false; 4],
+                vec![true; 4],
+                vec![false; 4],
+                vec![false; 4],
+            ],
+            Tetrimino::J => vec![
+                vec![true, false, false],
+                vec![true, true, true],
+                vec![false, false, false],
+            ],
+            Tetrimino::L => vec![
+                vec![false, false, true],
+                vec![true, true, true],
+                vec![false, false, false],
+            ],
+            Tetrimino::O => vec![vec![true; 2], vec![true; 2]],
+            Tetrimino::S => vec![
+                vec![false, true, true],
+                vec![true, true, false],
+                vec![false, false, false],
+            ],
+            Tetrimino::T => vec![
+                vec![false, true, false],
+                vec![true, true, true],
+                vec![false, false, false],
+            ],
+            Tetrimino::Z => vec![
+                vec![true, true, false],
+                vec![false, true, true],
+                vec![false, false, false],
+            ],
+            _ => todo!(),
+        }
+    }
+
+    fn color(&self) -> PieceColor {
+        match self {
+            Tetrimino::I => PieceColor::LightBlue,
+            Tetrimino::J => PieceColor::DarkBlue,
+            Tetrimino::L => PieceColor::Orange,
+            Tetrimino::O => PieceColor::Yellow,
+            Tetrimino::S => PieceColor::Green,
+            Tetrimino::T => PieceColor::Magenta,
+            Tetrimino::Z => PieceColor::Red,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum Rotation {
+    Clockwise,
+    CounterClockwise,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum Orientation {
+    North,
+    East,
+    South,
+    West,
+}
+
 #[derive(Copy, Clone, Debug)]
 enum BoardPixel {
     Filled(PieceColor),
@@ -306,30 +498,7 @@ enum BoardPixel {
 impl Into<Srgba> for BoardPixel {
     fn into(self) -> Srgba<f32> {
         match self {
-            BoardPixel::Filled(PieceColor::LightBlue) => {
-                Srgba::new(0. / 255., 230. / 255., 254. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::DarkBlue) => {
-                Srgba::new(24. / 255., 1. / 255., 255. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::Orange) => {
-                Srgba::new(255. / 255., 115. / 255., 8. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::Yellow) => {
-                Srgba::new(255. / 255., 222. / 255., 0. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::Green) => {
-                Srgba::new(102. / 255., 253. / 255., 0. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::Red) => {
-                Srgba::new(254. / 255., 16. / 255., 60. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::Magenta) => {
-                Srgba::new(184. / 255., 2. / 255., 253. / 255., 1.0)
-            }
-            BoardPixel::Filled(PieceColor::Gray) => {
-                Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0)
-            }
+            BoardPixel::Filled(piece) => piece.into(),
             BoardPixel::Empty => Srgba::new(0.05, 0.05, 0.05, 1.0),
         }
     }
@@ -345,4 +514,19 @@ enum PieceColor {
     Red,
     Magenta,
     Gray,
+}
+
+impl Into<Srgba> for PieceColor {
+    fn into(self) -> Srgba<f32> {
+        match self {
+            PieceColor::LightBlue => Srgba::new(0. / 255., 230. / 255., 254. / 255., 1.0),
+            PieceColor::DarkBlue => Srgba::new(24. / 255., 1. / 255., 255. / 255., 1.0),
+            PieceColor::Orange => Srgba::new(255. / 255., 115. / 255., 8. / 255., 1.0),
+            PieceColor::Yellow => Srgba::new(255. / 255., 222. / 255., 0. / 255., 1.0),
+            PieceColor::Green => Srgba::new(102. / 255., 253. / 255., 0. / 255., 1.0),
+            PieceColor::Red => Srgba::new(254. / 255., 16. / 255., 60. / 255., 1.0),
+            PieceColor::Magenta => Srgba::new(184. / 255., 2. / 255., 253. / 255., 1.0),
+            PieceColor::Gray => Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0),
+        }
+    }
 }

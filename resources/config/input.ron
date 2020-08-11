@@ -3,9 +3,10 @@
     actions: {
         Left: [ [Key(Left)] ],
         Right: [ [Key(Right)] ],
-        RotateClockwise: [ [Key(Up)] ],
+        RotateClockwise: [ [Key(Up)], [Key(X)] ],
         DropSoft: [ [Key(Down)] ],
         DropHard: [ [Key(Space)] ],
+        Hold: [ [Key(C)], [Key(LShift)] ],
 
         Debug: [ [Key(F9)] ],
     },

@@ -15,6 +15,7 @@ pub enum InputEvent {
     RotateClockwise,
     DropSoft,
     DropHard,
+    Hold,
 }
 
 /// Events coming out of our game

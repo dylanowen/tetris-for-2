@@ -21,6 +21,7 @@ pub enum GameActions {
     RotateClockwise,
     DropSoft,
     DropHard,
+    Hold,
     Debug,
 }
 
@@ -32,7 +33,8 @@ impl Into<Option<InputEvent>> for &GameActions {
             GameActions::RotateClockwise => Some(InputEvent::RotateClockwise),
             GameActions::DropSoft => Some(InputEvent::DropSoft),
             GameActions::DropHard => Some(InputEvent::DropHard),
-            GameActions::Debug => Some(InputEvent::DropHard),
+            GameActions::Hold => Some(InputEvent::Hold),
+            GameActions::Debug => None,
         }
     }
 }
