@@ -15,6 +15,7 @@ profiler = ["amethyst/profiler"]
 
 [dependencies]
 log = "0.4"
+chrono = "0.4"
 lazy_static = "1.4"
 
 amethyst = "0.15"

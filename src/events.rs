@@ -11,7 +11,7 @@ pub enum NetworkEvent {
 pub enum GameRxEvent {
     Start(u64),
     Input(InputEvent),
-    Tick,
+    Tick(u64),
     AddRows(usize),
 }
 

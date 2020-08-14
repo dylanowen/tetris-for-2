@@ -48,7 +48,9 @@ fn tick(mut tick_timer: f32, level: usize, time: &Time, player_tx: &Sender<GameR
         tick_timer = (0.8 - (level_float * 0.007)).powf(level_float);
 
         // send our tick event
-        player_tx.send(GameRxEvent::Tick).expect("Always send");
+        player_tx
+            .send(GameRxEvent::Tick(rand::thread_rng().gen()))
+            .expect("Always send");
     }
 
     tick_timer

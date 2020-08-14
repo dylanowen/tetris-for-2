@@ -27,11 +27,11 @@ impl<'s> System<'s> for InputSystem {
         for input_event in input_events.read(&mut self.reader) {
             if let AmethystInputEvent::ActionPressed(action) = input_event {
                 if let Some(simulation_event) = Into::<Option<InputEvent>>::into(action) {
-                    log::debug!("forwarding message");
+                    log::trace!("forwarding message {}", simulation_event);
 
                     self.input_tx
                         .send(GameRxEvent::Input(simulation_event))
-                        .expect("We should always be able to send this message");
+                        .expect("Always send");
                 } else {
                     println!("other");
                 }

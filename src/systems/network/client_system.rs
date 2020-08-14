@@ -37,7 +37,7 @@ impl<'s> System<'s> for ClientSystem {
                 NetworkSimulationEvent::SendError(e, msg) => {
                     error!("Send Error: {:?}, {:?}", e, msg);
                 }
-                _ => {}
+                _ => error!("{:?}", event),
             }
         }
 

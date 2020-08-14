@@ -1,7 +1,7 @@
 SHELL:=/bin/bash
 
 .DEFAULT_GOAL := default
-.PHONY: format clippy lint doc fix
+.PHONY: format clippy lint server client doc fix
 
 format:
 	cargo fmt
@@ -20,6 +20,12 @@ release: lint
 
 profiler: lint
 	cargo build --release --features="metal,release,profiler"
+
+server: lint
+	cargo run --release --features="metal" -- server 0.0.0.0:3456
+
+client: lint
+	cargo run --release --features="metal" -- client 127.0.0.1:3456
 
 #vulkan: lint
 #	cargo run --features="vulkan"

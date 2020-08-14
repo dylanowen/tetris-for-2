@@ -18,11 +18,12 @@ use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, BOARD_WIDTH, P
 use crate::systems::utils::{KnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
 use amethyst::core::ecs::shrev::EventChannel;
+use amethyst::network::simulation::laminar::{LaminarNetworkBundle, LaminarSocket};
 use amethyst::network::simulation::NetworkSimulationEvent;
 use amethyst::prelude::*;
 
 struct MultiplayerSystem {
-    started: bool,
+    state: State,
     level: usize,
     tick_timer: f32,
     input_rx: Receiver<GameRxEvent>,
@@ -31,6 +32,13 @@ struct MultiplayerSystem {
     player_net_tx: Sender<GameRxEvent>,
     opponent_rx: Receiver<GameTxEvent>,
     reader: ReaderId<NetworkSimulationEvent>,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum State {
+    Started,
+    ClientWaiting,
+    ServerWaiting,
 }
 
 // TODO create an event system for the entire game, we can reuse it for different things
@@ -45,26 +53,35 @@ impl<'s> System<'s> for MultiplayerSystem {
     );
 
     fn run(&mut self, (net_events, time): Self::SystemData) {
-        if !self.started {
-            // we're a client so we can kick off our start event immediately
-            self.started = true;
+        match self.state {
+            State::Started => {
+                // drop all of our network events (we only needed the Connect event)
+                net_events.read(&mut self.reader);
 
-            start_game(&self.player_tx);
-        } else {
-            // either we've started a client and will never get this event, or we're a server waiting for it
-            for net_event in net_events.read(&mut self.reader) {
-                if let NetworkSimulationEvent::Connect(_) = net_event {
-                    start_game(&self.player_tx);
+                // forward all of our input events
+                while let Ok(input_event) = self.input_rx.try_recv() {
+                    self.player_tx.send(input_event).expect("Always send")
+                }
+
+                self.tick_timer = tick(self.tick_timer, self.level, &time, &self.player_tx);
+            }
+            State::ClientWaiting => {
+                // we're a client so we can kick off our start event immediately
+                self.state = State::Started;
+
+                start_game(&self.player_tx);
+            }
+            State::ServerWaiting => {
+                // either we've started a client and will never get this event, or we're a server waiting for it
+                for net_event in net_events.read(&mut self.reader) {
+                    if let NetworkSimulationEvent::Connect(_) = net_event {
+                        self.state = State::Started;
+
+                        start_game(&self.player_tx);
+                    }
                 }
             }
         }
-
-        // forward all of our input events
-        while let Ok(input_event) = self.input_rx.try_recv() {
-            self.player_tx.send(input_event).expect("Always send")
-        }
-
-        self.tick_timer = tick(self.tick_timer, self.level, &time, &self.player_tx);
 
         // read the output and see if anything interesting happened in our game / forward it
         while let Ok(game_event) = self.player_rx.try_recv() {
@@ -120,29 +137,33 @@ pub fn setup<'a, 'b>(
             &[KnownSystems::SpriteLoader.into()],
         );
 
-    let started;
+    let state;
     game_data = match game_type {
         GameType::Server(address) => {
             info!("Server listening on: {}", address);
 
-            // let socket = LaminarSocket::bind(address)?;
-            let listener = TcpListener::bind(address)?;
-            listener.set_nonblocking(true)?;
+            state = State::ServerWaiting;
 
-            started = true;
+            let socket = LaminarSocket::bind(address)?;
+            // let listener = TcpListener::bind(address)?;
+            //listener.set_nonblocking(true)?;
+
             game_data
-                //.with_bundle(LaminarNetworkBundle::new(Some(socket)))?
-                .with_bundle(TcpNetworkBundle::new(Some(listener), 2048))?
+                .with_bundle(LaminarNetworkBundle::new(Some(socket)))?
+                // .with_bundle(TcpNetworkBundle::new(Some(listener), 2048))?
                 .with_known_desc(ServerSystemDesc {
                     player_out_tx: player_out_net_rx,
                     opponent_in_rx: opponent_in_net_tx,
                 })
         }
         GameType::Client(server_address) => {
-            started = false;
+            state = State::ClientWaiting;
+
+            let socket = LaminarSocket::bind_any()?;
+
             game_data
-                .with_bundle(TcpNetworkBundle::new(None, 2048))?
-                // .with_bundle(LaminarNetworkBundle::new(Some(socket)))?
+                .with_bundle(LaminarNetworkBundle::new(Some(socket)))?
+                //.with_bundle(TcpNetworkBundle::new(None, 2048))?
                 .with_known_desc(ClientSystemDesc {
                     player_out_tx: player_out_net_rx,
                     opponent_in_rx: opponent_in_net_tx,
@@ -153,8 +174,7 @@ pub fn setup<'a, 'b>(
     };
 
     Ok(game_data.with_known_desc(MultiplayerSystemDesc {
-        started,
-
+        state,
         input_rx: input_out_rx,
         player_tx: player_in_tx,
         player_rx: player_out_rx,
@@ -164,7 +184,7 @@ pub fn setup<'a, 'b>(
 }
 
 pub struct MultiplayerSystemDesc {
-    started: bool,
+    state: State,
     input_rx: Receiver<GameRxEvent>,
     player_tx: Sender<GameRxEvent>,
     player_rx: Receiver<GameTxEvent>,
@@ -181,7 +201,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, MultiplayerSystem> for MultiplayerSystemDesc {
             .register_reader();
 
         MultiplayerSystem {
-            started: self.started,
+            state: self.state,
             level: 1,
             tick_timer: 0.,
             input_rx: self.input_rx,

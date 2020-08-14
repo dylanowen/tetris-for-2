@@ -6,7 +6,8 @@ use amethyst::renderer::types::DefaultBackend;
 use amethyst::renderer::RenderFlat2D;
 use amethyst::renderer::RenderingBundle;
 use amethyst::utils::application_root_dir;
-use amethyst::{Application, GameDataBuilder, LoggerConfig};
+use amethyst::{Application, GameDataBuilder, Logger, LoggerConfig};
+use chrono::Local;
 use clap::{App, AppSettings, Arg, SubCommand};
 use log::LevelFilter;
 
@@ -18,8 +19,19 @@ use tetris_for_two::GameState;
 
 fn main() -> amethyst::Result<()> {
     let mut logger_config = LoggerConfig::default();
+    // hide the metal error logs until the bug is fixed
+    logger_config.log_gfx_backend_level = Some(LevelFilter::Error);
     logger_config.level_filter = LevelFilter::Debug;
-    amethyst::start_logger(logger_config);
+    Logger::from_config_formatter(logger_config, |out, message, record| {
+        out.finish(format_args!(
+            "{} [{level}][{target}] {message}",
+            Local::now().format("%Y-%m-%dT%H:%M:%S"),
+            level = record.level(),
+            target = record.target(),
+            message = message,
+        ))
+    })
+    .start();
 
     let app_root = application_root_dir()?;
     let resources_dir = app_root.join("resources");

@@ -69,6 +69,8 @@ impl TetrisGameSystem {
         } = self.handle_event(event);
         // forward along all the events we found
         events.into_iter().for_each(|e| {
+            //debug!("Forwarding event: {:?}", e);
+
             self.out_tx
                 .send(e)
                 .expect("We should always be able to send this")
@@ -78,7 +80,7 @@ impl TetrisGameSystem {
     }
 
     fn handle_event(&mut self, event: GameRxEvent) -> UpdatedState {
-        debug!("simulation received event: {:?}", event);
+        //debug!("Received event: {:?}", event);
 
         match event {
             GameRxEvent::Start(seed) => {
@@ -96,9 +98,9 @@ impl TetrisGameSystem {
                     UpdatedState::empty()
                 }
             }
-            GameRxEvent::Tick => {
+            GameRxEvent::Tick(id) => {
                 if self.running {
-                    self.tick()
+                    self.tick(id)
                 } else {
                     UpdatedState::empty()
                 }
@@ -189,7 +191,7 @@ impl TetrisGameSystem {
         // }
     }
 
-    fn tick(&mut self) -> UpdatedState {
+    fn tick(&mut self, id: u64) -> UpdatedState {
         if let Some(mut piece) = self.piece.clone() {
             piece.offset.1 -= 1;
 
@@ -222,7 +224,7 @@ impl TetrisGameSystem {
             self.piece = Some(Piece::new(next_tetrimino, (5, 20)));
         }
 
-        UpdatedState::rx_event(true, GameRxEvent::Tick)
+        UpdatedState::rx_event(true, GameRxEvent::Tick(id))
     }
 
     // fn soft_drop(&mut self, mut piece: Piece) -> bool {

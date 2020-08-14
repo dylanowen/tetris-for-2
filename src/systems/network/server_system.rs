@@ -8,7 +8,7 @@ use crossbeam::channel::{Receiver, Sender};
 use log::{debug, error, info};
 
 use crate::events::{GameRxEvent, NetworkEvent};
-use crate::systems::network::{handle_message, send};
+use crate::systems::network::{forward_events, handle_message};
 use crate::systems::utils::KnownSystem;
 use crate::systems::KnownSystems;
 
@@ -46,17 +46,18 @@ impl<'s> System<'s> for ServerSystem {
                 NetworkSimulationEvent::SendError(e, msg) => {
                     error!("Send Error: {:?}, {:?}", e, msg);
                 }
-                _ => {}
+                _ => error!("{:?}", event),
             }
         }
 
         if let Some(client_address) = self.client_address {
-            while let Ok(rx_event) = self.player_out_tx.try_recv() {
-                // if let GameTxEvent::RxEvent(rx_event) = player_output {
-                debug!("Forwarding message {:?} to {}", rx_event, client_address);
-
-                send(&NetworkEvent::GameRx(rx_event), client_address, &mut net);
-            }
+            forward_events(client_address, &self.player_out_tx, &mut net);
+            // while let Ok(rx_event) = self.player_out_tx.try_recv() {
+            //     // if let GameTxEvent::RxEvent(rx_event) = player_output {
+            //     debug!("Forwarding message {:?} to {}", rx_event, client_address);
+            //
+            //     send(, client_address, &mut net);
+            // }
         }
     }
 }

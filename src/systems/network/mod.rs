@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use amethyst::network::simulation::TransportResource;
+use amethyst::network::simulation::{DeliveryRequirement, TransportResource, UrgencyRequirement};
 use amethyst::network::Bytes;
 use crossbeam::channel::{Receiver, Sender};
 use log::debug;
@@ -14,18 +14,23 @@ pub mod server_system;
 pub fn send(event: &NetworkEvent, address: SocketAddr, net: &mut TransportResource) {
     let payload = encode::to_vec(&event).expect("We should always be able to serialize our events");
 
-    net.send(address, &payload);
+    net.send_with_requirements(
+        address,
+        &payload,
+        DeliveryRequirement::ReliableOrdered(None),
+        UrgencyRequirement::OnTick,
+    );
 }
 
 pub fn handle_message(payload: &Bytes, input_tx: &Sender<GameRxEvent>) {
     let network_event =
         decode::from_read_ref::<_, NetworkEvent>(&payload).expect("We should only send valid data");
 
+    trace!("Received message {:?}", network_event);
+
     match network_event {
         NetworkEvent::GameRx(game_event) => {
-            input_tx
-                .send(game_event)
-                .expect("we should always be able to send this");
+            input_tx.send(game_event).expect("Always send");
         }
     }
 }
@@ -36,10 +41,8 @@ pub fn forward_events(
     net: &mut TransportResource,
 ) {
     while let Ok(rx_event) = output_rx.try_recv() {
-        // if let GameTxEvent::RxEvent(rx_event) = player_output {
-        debug!("Forwarding message {:?} to {}", rx_event, other_address);
+        trace!("Forwarding message {:?} to {}", rx_event, other_address);
 
         send(&NetworkEvent::GameRx(rx_event), other_address, net);
-        //  }
     }
 }
