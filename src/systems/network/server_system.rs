@@ -5,9 +5,8 @@ use amethyst::network::simulation::{NetworkSimulationEvent, TransportResource};
 use amethyst::prelude::*;
 use amethyst::shrev::{EventChannel, ReaderId};
 use crossbeam::channel::{Receiver, Sender};
-use log::{debug, error, info};
 
-use crate::events::{GameRxEvent, NetworkEvent};
+use crate::events::GameRxEvent;
 use crate::systems::network::{forward_events, handle_message};
 use crate::systems::utils::KnownSystem;
 use crate::systems::KnownSystems;
@@ -32,7 +31,7 @@ impl<'s> System<'s> for ServerSystem {
                     handle_message(payload, &self.opponent_in_rx)
                 }
                 NetworkSimulationEvent::Connect(addr) => {
-                    info!("connected {}", addr);
+                    log::info!("connected {}", addr);
 
                     if self.client_address.is_none() {
                         // get our client's address
@@ -41,12 +40,12 @@ impl<'s> System<'s> for ServerSystem {
                 }
                 NetworkSimulationEvent::Disconnect(_addr) => self.client_address = None,
                 NetworkSimulationEvent::RecvError(e) => {
-                    error!("Recv Error: {:?}", e);
+                    log::error!("Recv Error: {:?}", e);
                 }
                 NetworkSimulationEvent::SendError(e, msg) => {
-                    error!("Send Error: {:?}, {:?}", e, msg);
+                    log::error!("Send Error: {:?}, {:?}", e, msg);
                 }
-                _ => error!("{:?}", event),
+                _ => log::error!("{:?}", event),
             }
         }
 

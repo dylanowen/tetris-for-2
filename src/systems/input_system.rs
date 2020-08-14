@@ -27,7 +27,7 @@ impl<'s> System<'s> for InputSystem {
         for input_event in input_events.read(&mut self.reader) {
             if let AmethystInputEvent::ActionPressed(action) = input_event {
                 if let Some(simulation_event) = Into::<Option<InputEvent>>::into(action) {
-                    log::trace!("forwarding message {}", simulation_event);
+                    log::trace!("forwarding message {:?}", simulation_event);
 
                     self.input_tx
                         .send(GameRxEvent::Input(simulation_event))

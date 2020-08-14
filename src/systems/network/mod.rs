@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use amethyst::network::simulation::{DeliveryRequirement, TransportResource, UrgencyRequirement};
 use amethyst::network::Bytes;
 use crossbeam::channel::{Receiver, Sender};
-use log::debug;
 use rmp_serde::{decode, encode};
 
 use crate::events::{GameRxEvent, NetworkEvent};
@@ -26,7 +25,7 @@ pub fn handle_message(payload: &Bytes, input_tx: &Sender<GameRxEvent>) {
     let network_event =
         decode::from_read_ref::<_, NetworkEvent>(&payload).expect("We should only send valid data");
 
-    trace!("Received message {:?}", network_event);
+    log::trace!("Received message {:?}", network_event);
 
     match network_event {
         NetworkEvent::GameRx(game_event) => {
@@ -41,7 +40,7 @@ pub fn forward_events(
     net: &mut TransportResource,
 ) {
     while let Ok(rx_event) = output_rx.try_recv() {
-        trace!("Forwarding message {:?} to {}", rx_event, other_address);
+        log::trace!("Forwarding message {:?} to {}", rx_event, other_address);
 
         send(&NetworkEvent::GameRx(rx_event), other_address, net);
     }

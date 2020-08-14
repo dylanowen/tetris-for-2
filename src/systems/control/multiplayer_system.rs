@@ -1,9 +1,10 @@
-use std::net::TcpListener;
-
+use amethyst::core::ecs::shrev::EventChannel;
 use amethyst::core::Time;
 use amethyst::ecs::{Read, ReaderId, System, SystemData, World};
 use amethyst::error::Error as AmethystError;
-use amethyst::network::simulation::tcp::TcpNetworkBundle;
+use amethyst::network::simulation::laminar::{LaminarNetworkBundle, LaminarSocket};
+use amethyst::network::simulation::NetworkSimulationEvent;
+use amethyst::prelude::*;
 use amethyst::GameDataBuilder;
 use crossbeam::channel;
 use crossbeam::channel::{Receiver, Sender};
@@ -17,10 +18,6 @@ use crate::systems::network::server_system::ServerSystemDesc;
 use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, BOARD_WIDTH, PIXEL_DIMENSION};
 use crate::systems::utils::{KnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
-use amethyst::core::ecs::shrev::EventChannel;
-use amethyst::network::simulation::laminar::{LaminarNetworkBundle, LaminarSocket};
-use amethyst::network::simulation::NetworkSimulationEvent;
-use amethyst::prelude::*;
 
 struct MultiplayerSystem {
     state: State,
