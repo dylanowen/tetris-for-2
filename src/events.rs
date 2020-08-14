@@ -1,8 +1,15 @@
 use serde::{Deserialize, Serialize};
 
+/// Events over the wire
+#[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum NetworkEvent {
+    GameRx(GameRxEvent),
+}
+
 /// Events coming into our game
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GameRxEvent {
+    Start(u64),
     Input(InputEvent),
     Tick,
     AddRows(usize),
@@ -22,5 +29,6 @@ pub enum InputEvent {
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GameTxEvent {
     RxEvent(GameRxEvent),
+    RemovedRow,
     Lose,
 }

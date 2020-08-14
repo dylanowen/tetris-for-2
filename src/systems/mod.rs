@@ -1,20 +1,20 @@
+pub use self::control::GameType;
 pub use self::debug_system::DebugBundle;
-pub use self::game_system::GameSystemBundle;
-pub use self::input_system::InputSystemDesc;
-pub use self::network_system::NetworkSystemDesc;
 
+mod control;
 mod debug_system;
-mod game_system;
 mod input_system;
-mod network_system;
+mod network;
+mod tetris;
 
 pub mod utils;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum KnownSystems {
     // Internal Systems
-    InputSystem,
+    ControlSystem,
     Debug,
+    InputSystem,
     NetworkSystem,
     SpriteLoader,
 
@@ -32,8 +32,9 @@ pub enum KnownSystems {
 impl Into<&'static str> for &KnownSystems {
     fn into(self) -> &'static str {
         match self {
-            KnownSystems::InputSystem => "control_system",
+            KnownSystems::ControlSystem => "control_system",
             KnownSystems::Debug => "debug_system",
+            KnownSystems::InputSystem => "my_input_system",
             KnownSystems::NetworkSystem => "network_system",
             KnownSystems::SpriteLoader => "sprite_loader_system",
 

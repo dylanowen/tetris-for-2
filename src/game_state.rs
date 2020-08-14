@@ -21,7 +21,7 @@ impl SimpleState for GameState {
 
     fn handle_event(
         &mut self,
-        data: StateData<'_, GameData<'_, '_>>,
+        _data: StateData<'_, GameData<'_, '_>>,
         event: StateEvent,
     ) -> SimpleTrans {
         // let StateData { world, .. } = data;
