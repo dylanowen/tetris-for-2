@@ -15,7 +15,7 @@ use rand::{Rng, SeedableRng};
 use crate::events::{GameRxEvent, GameTxEvent, InputEvent};
 use crate::sprite_loader::Sprites;
 use crate::sprite_loader::PIXEL_DIMENSION as ACTUAL_PIXEL_DIMENSION;
-use crate::systems::tetris::{BoardPixel, Piece, PieceColor, Rotation, Tetrimino};
+use crate::systems::tetris::{BoardPixel, Piece, PixelColor, Rotation, Tetrimino};
 
 const RENDER_BOUNDING_BOX: bool = true;
 
@@ -59,6 +59,11 @@ pub struct TetrisGameSystem {
     rng: StdRng,
     in_rx: Receiver<GameRxEvent>,
     out_tx: Sender<GameTxEvent>,
+    config: TetrisRenderingConfig,
+}
+
+pub struct TetrisRenderingConfig {
+    pub show_ghost: bool,
 }
 
 impl TetrisGameSystem {
@@ -117,14 +122,14 @@ impl TetrisGameSystem {
 
     fn handle_input(&mut self, event: InputEvent) -> UpdatedState {
         if let Some(mut piece) = self.piece.clone() {
-            let [valid_change, lock_piece] = match event {
+            let (valid_change, lock_piece) = match event {
                 InputEvent::Left => {
                     piece.offset.0 -= 1;
-                    [!self.check_collision(&piece), false]
+                    (!self.check_collision(&piece), false)
                 }
                 InputEvent::Right => {
                     piece.offset.0 += 1;
-                    [!self.check_collision(&piece), false]
+                    (!self.check_collision(&piece), false)
                 }
                 InputEvent::RotateClockwise => {
                     let mut valid_rotated_piece = None;
@@ -138,9 +143,9 @@ impl TetrisGameSystem {
                     match valid_rotated_piece {
                         Some(rotated_piece) => {
                             piece = rotated_piece;
-                            [true, false]
+                            (true, false)
                         }
-                        None => [false; 2],
+                        None => (false, false),
                     }
                 }
                 InputEvent::DropSoft => {
@@ -153,9 +158,14 @@ impl TetrisGameSystem {
                     }
 
                     // this move is always valid
-                    [true, lock]
+                    (true, lock)
                 }
-                _ => [false; 2],
+                InputEvent::DropHard => {
+                    piece = self.drop_hard_piece(piece);
+                    // this move is always valid and always locks the piece
+                    (true, true)
+                }
+                _ => (false, false),
             };
 
             if valid_change {
@@ -303,6 +313,18 @@ impl TetrisGameSystem {
         false
     }
 
+    fn drop_hard_piece(&self, mut piece: Piece) -> Piece {
+        piece.offset.1 -= 1;
+
+        while !self.check_collision(&piece) {
+            piece.offset.1 -= 1;
+        }
+
+        piece.offset.1 += 1;
+
+        piece
+    }
+
     fn board_entity(&self, x: isize, y: isize) -> Option<Entity> {
         if x >= 0 && x < VISIBLE_WIDTH as isize && y >= 0 && y < VISIBLE_HEIGHT as isize {
             Some(self.board_entities[x as usize][y as usize])
@@ -321,12 +343,42 @@ impl TetrisGameSystem {
         if Self::on_board(x, y) {
             self.board_state[x as usize][y as usize]
         } else {
-            BoardPixel::Filled(PieceColor::Gray)
+            BoardPixel::Filled(PixelColor::Gray)
         }
     }
 
     fn on_board(x: isize, y: isize) -> bool {
         x >= 0 && x < BOARD_WIDTH as isize && y >= 0 && y < BOARD_HEIGHT as isize
+    }
+
+    fn render_piece(
+        &self,
+        Piece {
+            offset,
+            bounding_box,
+            tetrimino: _,
+            orientation: _,
+        }: &Piece,
+        color: Srgba,
+        tint_storage: &mut WriteStorage<'_, Tint>,
+    ) {
+        for x in 0..bounding_box.len() {
+            for y in 0..bounding_box[x].len() {
+                if bounding_box[x][y] {
+                    let board_x = x as isize + offset.0;
+                    let board_y = y as isize + offset.1;
+
+                    // make sure we're inside the board
+                    if let Some(entity) = self.board_entity(board_x, board_y) {
+                        let tint = tint_storage
+                            .get_mut(entity)
+                            .expect("We should always have this entity");
+
+                        tint.0 = color;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -355,30 +407,25 @@ impl<'s> System<'s> for TetrisGameSystem {
             }
 
             // render our piece
-            if let Some(Piece {
-                offset,
-                ref bounding_box,
-                tetrimino,
-                orientation: _,
-            }) = self.piece
-            {
-                for x in 0..bounding_box.len() {
-                    for y in 0..bounding_box[x].len() {
-                        if bounding_box[x][y] {
-                            let board_x = x as isize + offset.0;
-                            let board_y = y as isize + offset.1;
+            if let Some(ref piece) = self.piece {
+                // render a ghost
+                if self.config.show_ghost {
+                    let ghost = self.drop_hard_piece(piece.clone());
 
-                            // make sure we're inside the board
-                            if let Some(entity) = self.board_entity(board_x, board_y) {
-                                let tint_color: Srgba = tetrimino.color().into();
+                    self.render_piece(&ghost, PixelColor::LightGray.into(), &mut tint_storage);
+                }
 
-                                let tint = tint_storage
-                                    .get_mut(entity)
-                                    .expect("We should always have this entity");
+                self.render_piece(piece, piece.tetrimino.color().into(), &mut tint_storage);
 
-                                tint.0 = tint_color;
-                            }
-                        } else if RENDER_BOUNDING_BOX {
+                if RENDER_BOUNDING_BOX {
+                    let Piece {
+                        offset,
+                        ref bounding_box,
+                        tetrimino: _,
+                        orientation: _,
+                    } = piece;
+                    for x in 0..bounding_box.len() {
+                        for y in 0..bounding_box[x].len() {
                             // for debugging, lighten the bounding box
 
                             let board_x = x as isize + offset.0;
@@ -459,6 +506,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
             rng: StdRng::seed_from_u64(0),
             in_rx: self.in_rx,
             out_tx: self.out_tx,
+            config: TetrisRenderingConfig { show_ghost: true },
         }
     }
 }

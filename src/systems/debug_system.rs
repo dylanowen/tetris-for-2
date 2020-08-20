@@ -11,7 +11,9 @@ use amethyst::input::InputEvent;
 use amethyst::prelude::SystemDesc;
 use amethyst::shred::{SetupHandler, SystemData};
 use amethyst::shrev::{EventChannel, ReaderId};
-use amethyst::ui::{get_default_font, Anchor, FontAsset, FontHandle, UiText, UiTransform};
+use amethyst::ui::{
+    get_default_font, Anchor, FontAsset, FontHandle, LineMode, UiText, UiTransform,
+};
 use amethyst::utils::fps_counter::{FpsCounter, FpsCounterBundle};
 
 use crate::input::{GameActions, GameInput};
@@ -204,7 +206,14 @@ impl DebugTextConfig {
             self.height,
         );
 
-        let mut ui_text = UiText::new(default_font, "".to_string(), [1., 1., 1., 0.5], self.height);
+        let mut ui_text = UiText::new(
+            default_font,
+            "".to_string(),
+            [1., 1., 1., 0.5],
+            self.height,
+            LineMode::Single,
+            Anchor::Middle,
+        );
         ui_text.align = Anchor::MiddleLeft;
 
         world

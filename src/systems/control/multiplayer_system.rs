@@ -46,6 +46,7 @@ enum State {
 impl<'s> System<'s> for MultiplayerSystem {
     type SystemData = (
         Read<'s, EventChannel<NetworkSimulationEvent>>,
+        // track when we should emit Tick events
         Read<'s, Time>,
     );
 

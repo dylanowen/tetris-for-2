@@ -18,7 +18,7 @@ log = "0.4"
 chrono = "0.4"
 lazy_static = "1.4"
 
-amethyst = "0.15"
+amethyst = "0.15.1"
 rand = "0.7"
 
 # Network serialization

@@ -15,7 +15,7 @@ pub enum GameRxEvent {
     AddRows(usize),
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum InputEvent {
     Left,
     Right,

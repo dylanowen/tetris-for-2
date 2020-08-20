@@ -240,15 +240,15 @@ impl Tetrimino {
         }
     }
 
-    pub fn color(&self) -> PieceColor {
+    pub fn color(&self) -> PixelColor {
         match self {
-            Tetrimino::I => PieceColor::LightBlue,
-            Tetrimino::J => PieceColor::DarkBlue,
-            Tetrimino::L => PieceColor::Orange,
-            Tetrimino::O => PieceColor::Yellow,
-            Tetrimino::S => PieceColor::Green,
-            Tetrimino::T => PieceColor::Magenta,
-            Tetrimino::Z => PieceColor::Red,
+            Tetrimino::I => PixelColor::LightBlue,
+            Tetrimino::J => PixelColor::DarkBlue,
+            Tetrimino::L => PixelColor::Orange,
+            Tetrimino::O => PixelColor::Yellow,
+            Tetrimino::S => PixelColor::Green,
+            Tetrimino::T => PixelColor::Magenta,
+            Tetrimino::Z => PixelColor::Red,
         }
     }
 }
@@ -269,7 +269,7 @@ pub enum Orientation {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum BoardPixel {
-    Filled(PieceColor),
+    Filled(PixelColor),
     Empty,
 }
 
@@ -283,7 +283,7 @@ impl Into<Srgba> for BoardPixel {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum PieceColor {
+pub enum PixelColor {
     LightBlue,
     DarkBlue,
     Orange,
@@ -292,20 +292,22 @@ pub enum PieceColor {
     Red,
     Magenta,
     Gray,
+    LightGray,
 }
 
-impl Into<Srgba> for PieceColor {
+impl Into<Srgba> for PixelColor {
     fn into(self) -> Srgba<f32> {
         #[allow(clippy::eq_op)]
         match self {
-            PieceColor::LightBlue => Srgba::new(0. / 255., 230. / 255., 254. / 255., 1.0),
-            PieceColor::DarkBlue => Srgba::new(24. / 255., 1. / 255., 255. / 255., 1.0),
-            PieceColor::Orange => Srgba::new(255. / 255., 115. / 255., 8. / 255., 1.0),
-            PieceColor::Yellow => Srgba::new(255. / 255., 222. / 255., 0. / 255., 1.0),
-            PieceColor::Green => Srgba::new(102. / 255., 253. / 255., 0. / 255., 1.0),
-            PieceColor::Red => Srgba::new(254. / 255., 16. / 255., 60. / 255., 1.0),
-            PieceColor::Magenta => Srgba::new(184. / 255., 2. / 255., 253. / 255., 1.0),
-            PieceColor::Gray => Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0),
+            PixelColor::LightBlue => Srgba::new(0. / 255., 230. / 255., 254. / 255., 1.0),
+            PixelColor::DarkBlue => Srgba::new(24. / 255., 1. / 255., 255. / 255., 1.0),
+            PixelColor::Orange => Srgba::new(255. / 255., 115. / 255., 8. / 255., 1.0),
+            PixelColor::Yellow => Srgba::new(255. / 255., 222. / 255., 0. / 255., 1.0),
+            PixelColor::Green => Srgba::new(102. / 255., 253. / 255., 0. / 255., 1.0),
+            PixelColor::Red => Srgba::new(254. / 255., 16. / 255., 60. / 255., 1.0),
+            PixelColor::Magenta => Srgba::new(184. / 255., 2. / 255., 253. / 255., 1.0),
+            PixelColor::Gray => Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0),
+            PixelColor::LightGray => Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0),
         }
     }
 }

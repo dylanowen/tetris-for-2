@@ -74,7 +74,7 @@ pub fn setup<'a, 'b>(
         )
         .with_known(SinglePlayerSystem {
             started: false,
-            level: 1,
+            level: 3,
             tick_timer: 0.,
             input_rx: input_out_rx,
             player_tx: player_in_tx,
