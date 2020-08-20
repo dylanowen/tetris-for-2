@@ -61,7 +61,8 @@ pub fn setup<'a, 'b>(
 
     game_data = game_data
         .with_known_desc(InputSystemDesc {
-            input_tx: input_out_tx,
+            one_input_tx: input_out_tx,
+            two_input_tx: None,
         })
         .with_system_desc(
             TetrisGameSystemDesc {

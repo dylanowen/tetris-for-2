@@ -45,7 +45,8 @@ fn main() -> amethyst::Result<()> {
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .subcommand(SubCommand::with_name("server").arg(Arg::with_name("address").required(true)))
         .subcommand(SubCommand::with_name("client").arg(Arg::with_name("address").required(true)))
-        .subcommand(SubCommand::with_name("local"))
+        .subcommand(SubCommand::with_name("single"))
+        .subcommand(SubCommand::with_name("double"))
         .get_matches();
 
     let game_type = match matches.subcommand() {
@@ -57,7 +58,8 @@ fn main() -> amethyst::Result<()> {
             let address = sub_matches.value_of("address").unwrap();
             GameType::Client(address.parse().expect("should parse"))
         }
-        ("local", _) => GameType::Local,
+        ("single", _) => GameType::Single,
+        ("double", _) => GameType::Double,
         _ => unreachable!(),
     };
 

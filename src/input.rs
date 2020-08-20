@@ -22,18 +22,73 @@ pub enum GameActions {
     DropSoft,
     DropHard,
     Hold,
+
+    OneDropHard,
+    OneHold,
+
+    TwoLeft,
+    TwoRight,
+    TwoRotateClockwise,
+    TwoDropSoft,
+    TwoDropHard,
+    TwoHold,
+
     Debug,
+}
+
+impl GameActions {
+    pub fn single(&self) -> bool {
+        match self {
+            GameActions::Left
+            | GameActions::Right
+            | GameActions::RotateClockwise
+            | GameActions::DropSoft
+            | GameActions::DropHard
+            | GameActions::Hold => true,
+            _ => false,
+        }
+    }
+
+    pub fn one(&self) -> bool {
+        match self {
+            GameActions::Left
+            | GameActions::Right
+            | GameActions::RotateClockwise
+            | GameActions::DropSoft
+            | GameActions::OneDropHard
+            | GameActions::OneHold => true,
+            _ => false,
+        }
+    }
+
+    pub fn two(&self) -> bool {
+        match self {
+            GameActions::TwoLeft
+            | GameActions::TwoRight
+            | GameActions::TwoRotateClockwise
+            | GameActions::TwoDropSoft
+            | GameActions::TwoDropHard
+            | GameActions::TwoHold => true,
+            _ => false,
+        }
+    }
 }
 
 impl Into<Option<InputEvent>> for &GameActions {
     fn into(self) -> Option<InputEvent> {
         match self {
-            GameActions::Left => Some(InputEvent::Left),
-            GameActions::Right => Some(InputEvent::Right),
-            GameActions::RotateClockwise => Some(InputEvent::RotateClockwise),
-            GameActions::DropSoft => Some(InputEvent::DropSoft),
-            GameActions::DropHard => Some(InputEvent::DropHard),
-            GameActions::Hold => Some(InputEvent::Hold),
+            GameActions::Left | GameActions::TwoLeft => Some(InputEvent::Left),
+            GameActions::Right | GameActions::TwoRight => Some(InputEvent::Right),
+            GameActions::RotateClockwise | GameActions::TwoRotateClockwise => {
+                Some(InputEvent::RotateClockwise)
+            }
+            GameActions::DropSoft | GameActions::TwoDropSoft => Some(InputEvent::DropSoft),
+            GameActions::DropHard | GameActions::OneDropHard | GameActions::TwoDropHard => {
+                Some(InputEvent::DropHard)
+            }
+            GameActions::Hold | GameActions::OneHold | GameActions::TwoHold => {
+                Some(InputEvent::Hold)
+            }
             GameActions::Debug => None,
         }
     }

@@ -292,7 +292,6 @@ pub enum PixelColor {
     Red,
     Magenta,
     Gray,
-    LightGray,
 }
 
 impl Into<Srgba> for PixelColor {
@@ -307,7 +306,6 @@ impl Into<Srgba> for PixelColor {
             PixelColor::Red => Srgba::new(254. / 255., 16. / 255., 60. / 255., 1.0),
             PixelColor::Magenta => Srgba::new(184. / 255., 2. / 255., 253. / 255., 1.0),
             PixelColor::Gray => Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0),
-            PixelColor::LightGray => Srgba::new(50. / 255., 50. / 255., 50. / 255., 1.0),
         }
     }
 }

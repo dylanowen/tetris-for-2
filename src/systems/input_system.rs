@@ -12,17 +12,52 @@ use crate::systems::utils::KnownSystem;
 use crate::systems::KnownSystems;
 
 // the official guide recommends 0.3 but that seems slow
-const REPEAT_DELAY: f32 = 0.1;
+const REPEAT_DELAY: f32 = 0.3;
 // the official guide recommends moving across the board in 0.5 seconds but that seems slow
-const REPEAT_INTERVAL: f32 = 0.01;
+const REPEAT_INTERVAL: f32 = 0.5 / 10.;
 
 pub struct InputSystem {
-    down_side_keys: Vec<(InputEvent, f32)>,
-    input_tx: Sender<GameRxEvent>,
+    one: PlayerInput,
+    two: Option<PlayerInput>,
     reader: ReaderId<AmethystInputEvent<GameInput>>,
 }
 
-impl InputSystem {
+pub struct PlayerInput {
+    down_side_keys: Vec<(InputEvent, f32)>,
+    input_tx: Sender<GameRxEvent>,
+}
+
+impl PlayerInput {
+    fn action_pressed(&mut self, event: InputEvent) {
+        if event == InputEvent::Left || event == InputEvent::Right {
+            self.down_side_keys.push((event, REPEAT_DELAY))
+        }
+
+        self.send_event(event);
+    }
+
+    fn action_released(&mut self, event: InputEvent) {
+        // retain all the keys that aren't our release event
+        self.down_side_keys.retain(|(e, _)| *e != event);
+
+        // once we release a key redo the repeat delay
+        self.down_side_keys
+            .iter_mut()
+            .for_each(|(_, t)| *t = REPEAT_DELAY);
+    }
+
+    fn submit_down_keys(&mut self, time: &Read<'_, Time>) {
+        // check for our first down key and submit it's event
+        if !self.down_side_keys.is_empty() {
+            let i = self.down_side_keys.len() - 1;
+            self.down_side_keys[i].1 -= time.delta_seconds();
+            if self.down_side_keys[i].1 <= 0. {
+                self.send_event(self.down_side_keys[i].0);
+                self.down_side_keys[i].1 = REPEAT_INTERVAL - self.down_side_keys[i].1;
+            }
+        }
+    }
+
     fn send_event(&self, input_event: InputEvent) {
         log::trace!("forwarding message {:?}", input_event);
 
@@ -44,45 +79,53 @@ impl<'s> System<'s> for InputSystem {
         for input_event in input_events.read(&mut self.reader) {
             match input_event {
                 AmethystInputEvent::ActionPressed(action) => {
-                    if let Some(event) = Into::<Option<InputEvent>>::into(action) {
-                        if event == InputEvent::Left || event == InputEvent::Right {
-                            self.down_side_keys.push((event, REPEAT_DELAY))
-                        }
+                    let event = Into::<Option<InputEvent>>::into(action);
 
-                        self.send_event(event);
-                    } else {
-                        warn!("Other action: {}", action);
+                    match (action, &mut self.two) {
+                        (_, None) if action.single() => {
+                            self.one.action_pressed(event.unwrap());
+                        }
+                        (_, Some(_)) if action.one() => {
+                            self.one.action_pressed(event.unwrap());
+                        }
+                        (_, Some(two)) if action.two() => {
+                            two.action_pressed(event.unwrap());
+                        }
+                        (_, _) => {
+                            warn!("Other action: {}", action);
+                        }
                     }
                 }
                 AmethystInputEvent::ActionReleased(action) => {
-                    if let Some(event) = Into::<Option<InputEvent>>::into(action) {
-                        // retain all the keys that aren't our release event
-                        self.down_side_keys.retain(|(e, _)| *e != event);
+                    let event = Into::<Option<InputEvent>>::into(action);
 
-                        // once we release a key redo the repeat delay
-                        self.down_side_keys
-                            .iter_mut()
-                            .for_each(|(_, t)| *t = REPEAT_DELAY);
+                    match (action, &mut self.two) {
+                        (_, None) if action.single() => {
+                            self.one.action_released(event.unwrap());
+                        }
+                        (_, Some(_)) if action.one() => {
+                            self.one.action_released(event.unwrap());
+                        }
+                        (_, Some(two)) if action.two() => {
+                            two.action_released(event.unwrap());
+                        }
+                        (_, _) => {
+                            warn!("Other action: {}", action);
+                        }
                     }
                 }
                 _ => (),
             }
-
-            // check for our first down key and submit it's event
-            if !self.down_side_keys.is_empty() {
-                let i = self.down_side_keys.len() - 1;
-                self.down_side_keys[i].1 -= time.delta_seconds();
-                if self.down_side_keys[i].1 <= 0. {
-                    self.send_event(self.down_side_keys[i].0);
-                    self.down_side_keys[i].1 = REPEAT_INTERVAL - self.down_side_keys[i].1;
-                }
-            }
         }
+
+        self.one.submit_down_keys(&time);
+        self.two.as_mut().map(|p| p.submit_down_keys(&time));
     }
 }
 
 pub struct InputSystemDesc {
-    pub input_tx: Sender<GameRxEvent>,
+    pub one_input_tx: Sender<GameRxEvent>,
+    pub two_input_tx: Option<Sender<GameRxEvent>>,
 }
 
 impl<'a, 'b> SystemDesc<'a, 'b, InputSystem> for InputSystemDesc {
@@ -94,8 +137,14 @@ impl<'a, 'b> SystemDesc<'a, 'b, InputSystem> for InputSystemDesc {
             .register_reader();
 
         InputSystem {
-            down_side_keys: Vec::with_capacity(2),
-            input_tx: self.input_tx,
+            one: PlayerInput {
+                down_side_keys: Vec::with_capacity(2),
+                input_tx: self.one_input_tx,
+            },
+            two: self.two_input_tx.map(|sender| PlayerInput {
+                down_side_keys: Vec::with_capacity(2),
+                input_tx: sender,
+            }),
             reader: reader_id,
         }
     }

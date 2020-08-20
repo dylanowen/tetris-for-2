@@ -3,6 +3,7 @@ use amethyst::core::math::Vector3;
 use amethyst::core::Transform;
 use amethyst::ecs::{System, SystemData};
 use amethyst::prelude::*;
+use amethyst::renderer::palette::Hsla;
 use amethyst::renderer::palette::Srgba;
 use amethyst::renderer::resources::Tint;
 use amethyst::renderer::SpriteRender;
@@ -17,7 +18,7 @@ use crate::sprite_loader::Sprites;
 use crate::sprite_loader::PIXEL_DIMENSION as ACTUAL_PIXEL_DIMENSION;
 use crate::systems::tetris::{BoardPixel, Piece, PixelColor, Rotation, Tetrimino};
 
-const RENDER_BOUNDING_BOX: bool = true;
+const RENDER_BOUNDING_BOX: bool = false;
 
 const STAGING_HEIGHT: usize = 10;
 
@@ -411,8 +412,11 @@ impl<'s> System<'s> for TetrisGameSystem {
                 // render a ghost
                 if self.config.show_ghost {
                     let ghost = self.drop_hard_piece(piece.clone());
+                    let mut color: Hsla = Into::<Srgba>::into(ghost.tetrimino.color()).into();
+                    color.saturation *= 0.3;
+                    color.lightness *= 0.2;
 
-                    self.render_piece(&ghost, PixelColor::LightGray.into(), &mut tint_storage);
+                    self.render_piece(&ghost, color.into(), &mut tint_storage);
                 }
 
                 self.render_piece(piece, piece.tetrimino.color().into(), &mut tint_storage);
@@ -427,19 +431,21 @@ impl<'s> System<'s> for TetrisGameSystem {
                     for x in 0..bounding_box.len() {
                         for y in 0..bounding_box[x].len() {
                             // for debugging, lighten the bounding box
+                            if !bounding_box[x][y] {
+                                let board_x = x as isize + offset.0;
+                                let board_y = y as isize + offset.1;
 
-                            let board_x = x as isize + offset.0;
-                            let board_y = y as isize + offset.1;
+                                // get the bounding box and make sure we're inside the board
+                                if let Some(entity) = self.board_entity(board_x, board_y) {
+                                    let tint = tint_storage
+                                        .get_mut(entity)
+                                        .expect("We should always have this entity");
 
-                            // make sure we're inside the board
-                            if let Some(entity) = self.board_entity(board_x, board_y) {
-                                let tint = tint_storage
-                                    .get_mut(entity)
-                                    .expect("We should always have this entity");
+                                    let mut color: Hsla = tint.0.into();
+                                    color.lightness *= 4.;
 
-                                tint.0.red *= 1.5;
-                                tint.0.green *= 1.5;
-                                tint.0.blue *= 1.5;
+                                    tint.0 = color.into();
+                                }
                             }
                         }
                     }

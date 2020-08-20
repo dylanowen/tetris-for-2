@@ -3,10 +3,20 @@
     actions: {
         Left: [ [Key(Left)] ],
         Right: [ [Key(Right)] ],
-        RotateClockwise: [ [Key(Up)], [Key(X)] ],
+        RotateClockwise: [ [Key(Up)] ],
         DropSoft: [ [Key(Down)] ],
-        DropHard: [ [Key(Space)] ],
-        Hold: [ [Key(C)], [Key(LShift)] ],
+        DropHard: [ [Key(Space)], [Key(C)] ],
+        Hold: [ [Key(X)] ],
+
+        OneDropHard: [ [Key(Slash)] ],
+        OneHold: [ [Key(RShift)] ],
+
+        TwoLeft: [ [Key(F)] ],
+        TwoRight: [ [Key(H)] ],
+        TwoRotateClockwise: [ [Key(T)] ],
+        TwoDropSoft: [ [Key(G)] ],
+        TwoDropHard: [ [Key(D)] ],
+        TwoHold: [ [Key(S)] ],
 
         Debug: [ [Key(F9)] ],
     },
