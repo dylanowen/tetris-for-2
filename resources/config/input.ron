@@ -11,12 +11,12 @@
         OneDropHard: [ [Key(Slash)] ],
         OneHold: [ [Key(RShift)] ],
 
-        TwoLeft: [ [Key(F)] ],
-        TwoRight: [ [Key(H)] ],
-        TwoRotateClockwise: [ [Key(T)] ],
-        TwoDropSoft: [ [Key(G)] ],
-        TwoDropHard: [ [Key(D)] ],
-        TwoHold: [ [Key(S)] ],
+        TwoLeft: [ [Key(D)] ],
+        TwoRight: [ [Key(G)] ],
+        TwoRotateClockwise: [ [Key(R)] ],
+        TwoDropSoft: [ [Key(F)] ],
+        TwoDropHard: [ [Key(A)] ],
+        TwoHold: [ [Key(LShift)] ],
 
         Debug: [ [Key(F9)] ],
     },

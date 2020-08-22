@@ -10,24 +10,21 @@ use crossbeam::channel;
 use crossbeam::channel::{Receiver, Sender};
 use log::info;
 
-use crate::events::{GameRxEvent, GameTxEvent};
-use crate::systems::control::{start_game, tick, MARGIN};
+use crate::events::{TetrisIn, TetrisOut, UserInput};
+use crate::systems::control::{sent_pieces, LocalAttackPlayer, LocalPlayer, MARGIN};
 use crate::systems::input_system::InputSystemDesc;
 use crate::systems::network::client_system::ClientSystemDesc;
 use crate::systems::network::server_system::ServerSystemDesc;
 use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, BOARD_WIDTH, PIXEL_DIMENSION};
 use crate::systems::utils::{KnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
+use crate::ExpectSender;
 
 struct MultiplayerSystem {
     state: State,
-    level: usize,
-    tick_timer: f32,
-    input_rx: Receiver<GameRxEvent>,
-    player_tx: Sender<GameRxEvent>,
-    player_rx: Receiver<GameTxEvent>,
-    player_net_tx: Sender<GameRxEvent>,
-    opponent_rx: Receiver<GameTxEvent>,
+    local_player: LocalAttackPlayer,
+    player_net_tx: Sender<TetrisIn>,
+    opponent_rx: Receiver<TetrisOut>,
     reader: ReaderId<NetworkSimulationEvent>,
 }
 
@@ -56,18 +53,13 @@ impl<'s> System<'s> for MultiplayerSystem {
                 // drop all of our network events (we only needed the Connect event)
                 net_events.read(&mut self.reader);
 
-                // forward all of our input events
-                while let Ok(input_event) = self.input_rx.try_recv() {
-                    self.player_tx.send(input_event).expect("Always send")
-                }
-
-                self.tick_timer = tick(self.tick_timer, self.level, &time, &self.player_tx);
+                self.local_player.process_input(&time);
             }
             State::ClientWaiting => {
                 // we're a client so we can kick off our start event immediately
                 self.state = State::Started;
 
-                start_game(&self.player_tx);
+                self.local_player.start_game();
             }
             State::ServerWaiting => {
                 // either we've started a client and will never get this event, or we're a server waiting for it
@@ -75,25 +67,31 @@ impl<'s> System<'s> for MultiplayerSystem {
                     if let NetworkSimulationEvent::Connect(_) = net_event {
                         self.state = State::Started;
 
-                        start_game(&self.player_tx);
+                        self.local_player.start_game();
                     }
                 }
             }
         }
 
-        // read the output and see if anything interesting happened in our game / forward it
-        while let Ok(game_event) = self.player_rx.try_recv() {
-            match game_event {
-                GameTxEvent::RxEvent(rx_event) => {
-                    self.player_net_tx.send(rx_event).expect("Always send");
+        let net_tx = self.player_net_tx.clone();
+        let (_, local_lost) = self
+            .local_player
+            .handle_events(|in_event| net_tx.send_expect(in_event));
+
+        // read the opponent output and see if anything interesting happened in our game
+        let mut remote_lost = false;
+        while let Ok(opponent_event) = self.opponent_rx.try_recv() {
+            match opponent_event {
+                TetrisOut::RemovedRows(rows) => {
+                    self.local_player.handle_opponent_lines(sent_pieces(rows));
                 }
+                TetrisOut::Lose => remote_lost = true,
                 _ => (),
             }
         }
 
-        // read the opponent output and see if anything interesting happened in our game
-        while let Ok(_game_event) = self.opponent_rx.try_recv() {
-            // TODO
+        if local_lost || remote_lost {
+            panic!("Somebody won!")
         }
     }
 }
@@ -174,6 +172,7 @@ pub fn setup<'a, 'b>(
 
     Ok(game_data.with_known_desc(MultiplayerSystemDesc {
         state,
+
         input_rx: input_out_rx,
         player_tx: player_in_tx,
         player_rx: player_out_rx,
@@ -184,11 +183,11 @@ pub fn setup<'a, 'b>(
 
 pub struct MultiplayerSystemDesc {
     state: State,
-    input_rx: Receiver<GameRxEvent>,
-    player_tx: Sender<GameRxEvent>,
-    player_rx: Receiver<GameTxEvent>,
-    player_net_tx: Sender<GameRxEvent>,
-    opponent_rx: Receiver<GameTxEvent>,
+    input_rx: Receiver<UserInput>,
+    player_tx: Sender<TetrisIn>,
+    player_rx: Receiver<TetrisOut>,
+    player_net_tx: Sender<TetrisIn>,
+    opponent_rx: Receiver<TetrisOut>,
 }
 
 impl<'a, 'b> SystemDesc<'a, 'b, MultiplayerSystem> for MultiplayerSystemDesc {
@@ -201,11 +200,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, MultiplayerSystem> for MultiplayerSystemDesc {
 
         MultiplayerSystem {
             state: self.state,
-            level: 1,
-            tick_timer: 0.,
-            input_rx: self.input_rx,
-            player_tx: self.player_tx,
-            player_rx: self.player_rx,
+            local_player: LocalAttackPlayer::new(self.input_rx, self.player_tx, self.player_rx),
             player_net_tx: self.player_net_tx,
             opponent_rx: self.opponent_rx,
             reader: reader_id,

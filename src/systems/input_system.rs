@@ -6,10 +6,11 @@ use amethyst::shrev::{EventChannel, ReaderId};
 use crossbeam::channel::Sender;
 use log::warn;
 
-use crate::events::{GameRxEvent, InputEvent};
+use crate::events::UserInput;
 use crate::input::GameInput;
 use crate::systems::utils::KnownSystem;
 use crate::systems::KnownSystems;
+use crate::ExpectSender;
 
 // the official guide recommends 0.3 but that seems slow
 const REPEAT_DELAY: f32 = 0.3;
@@ -23,20 +24,20 @@ pub struct InputSystem {
 }
 
 pub struct PlayerInput {
-    down_side_keys: Vec<(InputEvent, f32)>,
-    input_tx: Sender<GameRxEvent>,
+    down_side_keys: Vec<(UserInput, f32)>,
+    input_tx: Sender<UserInput>,
 }
 
 impl PlayerInput {
-    fn action_pressed(&mut self, event: InputEvent) {
-        if event == InputEvent::Left || event == InputEvent::Right {
+    fn action_pressed(&mut self, event: UserInput) {
+        if event == UserInput::Left || event == UserInput::Right {
             self.down_side_keys.push((event, REPEAT_DELAY))
         }
 
         self.send_event(event);
     }
 
-    fn action_released(&mut self, event: InputEvent) {
+    fn action_released(&mut self, event: UserInput) {
         // retain all the keys that aren't our release event
         self.down_side_keys.retain(|(e, _)| *e != event);
 
@@ -58,12 +59,10 @@ impl PlayerInput {
         }
     }
 
-    fn send_event(&self, input_event: InputEvent) {
+    fn send_event(&self, input_event: UserInput) {
         log::trace!("forwarding message {:?}", input_event);
 
-        self.input_tx
-            .send(GameRxEvent::Input(input_event))
-            .expect("Always send");
+        self.input_tx.send_expect(input_event);
     }
 }
 
@@ -79,7 +78,7 @@ impl<'s> System<'s> for InputSystem {
         for input_event in input_events.read(&mut self.reader) {
             match input_event {
                 AmethystInputEvent::ActionPressed(action) => {
-                    let event = Into::<Option<InputEvent>>::into(action);
+                    let event = Into::<Option<UserInput>>::into(action);
 
                     match (action, &mut self.two) {
                         (_, None) if action.single() => {
@@ -97,7 +96,7 @@ impl<'s> System<'s> for InputSystem {
                     }
                 }
                 AmethystInputEvent::ActionReleased(action) => {
-                    let event = Into::<Option<InputEvent>>::into(action);
+                    let event = Into::<Option<UserInput>>::into(action);
 
                     match (action, &mut self.two) {
                         (_, None) if action.single() => {
@@ -124,8 +123,8 @@ impl<'s> System<'s> for InputSystem {
 }
 
 pub struct InputSystemDesc {
-    pub one_input_tx: Sender<GameRxEvent>,
-    pub two_input_tx: Option<Sender<GameRxEvent>>,
+    pub one_input_tx: Sender<UserInput>,
+    pub two_input_tx: Option<Sender<UserInput>>,
 }
 
 impl<'a, 'b> SystemDesc<'a, 'b, InputSystem> for InputSystemDesc {

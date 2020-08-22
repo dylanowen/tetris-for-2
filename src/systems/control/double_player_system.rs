@@ -3,11 +3,8 @@ use amethyst::core::Time;
 use amethyst::error::Error as AmethystError;
 use amethyst::GameDataBuilder;
 use crossbeam::channel;
-use crossbeam::channel::{Receiver, Sender};
-use rand::Rng;
 
-use crate::events::{GameRxEvent, GameTxEvent};
-use crate::systems::control::{calculate_tick, start_game, MARGIN};
+use crate::systems::control::{LocalAttackPlayer, LocalPlayer, MARGIN};
 use crate::systems::input_system::InputSystemDesc;
 use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, BOARD_WIDTH, PIXEL_DIMENSION};
 use crate::systems::utils::{KnownSystem, WithKnownSystem, WithKnownSystemDesc};
@@ -15,14 +12,8 @@ use crate::systems::{GameType, KnownSystems};
 
 struct DoublePlayerSystem {
     started: bool,
-    level: usize,
-    tick_timer: f32,
-    one_input_rx: Receiver<GameRxEvent>,
-    one_tx: Sender<GameRxEvent>,
-    one_rx: Receiver<GameTxEvent>,
-    two_input_rx: Receiver<GameRxEvent>,
-    two_tx: Sender<GameRxEvent>,
-    two_rx: Receiver<GameTxEvent>,
+    one: LocalAttackPlayer,
+    two: LocalAttackPlayer,
 }
 
 // TODO create an event system for the entire game, we can reuse it for different things
@@ -37,41 +28,24 @@ impl<'s> System<'s> for DoublePlayerSystem {
         if !self.started {
             self.started = true;
 
-            start_game(&self.one_tx);
-            start_game(&self.two_tx);
+            self.one.start_game();
+            self.two.start_game();
         }
 
-        let (tick_timer, send_tick) = calculate_tick(self.tick_timer, self.level, &time);
-        self.tick_timer = tick_timer;
-
-        progress_player(send_tick, &self.one_input_rx, &self.one_tx);
-        progress_player(send_tick, &self.two_input_rx, &self.two_tx);
+        self.one.process_input(&time);
+        self.two.process_input(&time);
 
         // read the output and see if anything interesting happened in our game
-        while let Ok(_game_event) = self.one_rx.try_recv() {
-            // TODO
-        }
-        while let Ok(_game_event) = self.two_rx.try_recv() {
-            // TODO
-        }
-    }
-}
+        let (one_lines, one_lost) = self.one.handle_events(|_| ());
+        let (two_lines, two_lost) = self.two.handle_events(|_| ());
 
-fn progress_player(
-    send_tick: bool,
-    player_input_rx: &Receiver<GameRxEvent>,
-    player_tx: &Sender<GameRxEvent>,
-) {
-    // forward all of our input events
-    while let Ok(input_event) = player_input_rx.try_recv() {
-        player_tx.send(input_event).expect("Always send")
-    }
+        // update our lines from our opponents
+        self.one.handle_opponent_lines(two_lines);
+        self.two.handle_opponent_lines(one_lines);
 
-    if send_tick {
-        // send our tick event
-        player_tx
-            .send(GameRxEvent::Tick(rand::thread_rng().gen()))
-            .expect("Always send");
+        if one_lost || two_lost {
+            panic!("Somebody won!")
+        }
     }
 }
 
@@ -79,8 +53,8 @@ pub fn setup<'a, 'b>(
     _: GameType,
     mut game_data: GameDataBuilder<'a, 'b>,
 ) -> Result<GameDataBuilder<'a, 'b>, AmethystError> {
-    let (one_input_out_tx, one_input_out_rx) = channel::unbounded();
-    let (two_input_out_tx, two_input_out_rx) = channel::unbounded();
+    let (one_input_tx, one_input_rx) = channel::unbounded();
+    let (two_input_tx, two_input_rx) = channel::unbounded();
 
     let (one_in_tx, one_in_rx) = channel::unbounded();
     let (one_out_tx, one_out_rx) = channel::unbounded();
@@ -90,12 +64,13 @@ pub fn setup<'a, 'b>(
 
     game_data = game_data
         .with_known_desc(InputSystemDesc {
-            one_input_tx: one_input_out_tx,
-            two_input_tx: Some(two_input_out_tx),
+            one_input_tx,
+            two_input_tx: Some(two_input_tx),
         })
         .with_system_desc(
             TetrisGameSystemDesc {
-                position: (MARGIN, MARGIN),
+                position: ((PIXEL_DIMENSION * BOARD_WIDTH as f32) + MARGIN * 2., MARGIN),
+                // position: (MARGIN, MARGIN),
                 in_rx: one_in_rx,
                 out_tx: one_out_tx,
             },
@@ -104,7 +79,8 @@ pub fn setup<'a, 'b>(
         )
         .with_system_desc(
             TetrisGameSystemDesc {
-                position: ((PIXEL_DIMENSION * BOARD_WIDTH as f32) + MARGIN * 2., MARGIN),
+                // position: ((PIXEL_DIMENSION * BOARD_WIDTH as f32) + MARGIN * 2., MARGIN),
+                position: (MARGIN, MARGIN),
                 in_rx: two_in_rx,
                 out_tx: two_out_tx,
             },
@@ -113,14 +89,8 @@ pub fn setup<'a, 'b>(
         )
         .with_known(DoublePlayerSystem {
             started: false,
-            level: 3,
-            tick_timer: 0.,
-            one_input_rx: one_input_out_rx,
-            one_tx: one_in_tx,
-            one_rx: one_out_rx,
-            two_input_rx: two_input_out_rx,
-            two_tx: two_in_tx,
-            two_rx: two_out_rx,
+            one: LocalAttackPlayer::new(one_input_rx, one_in_tx, one_out_rx),
+            two: LocalAttackPlayer::new(two_input_rx, two_in_tx, two_out_rx),
         });
 
     Ok(game_data)

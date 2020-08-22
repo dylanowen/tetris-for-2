@@ -3,7 +3,7 @@ use core::fmt;
 use amethyst::input::BindingTypes;
 use serde::{Deserialize, Serialize};
 
-use crate::events::InputEvent;
+use crate::events::UserInput;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GameAxis {}
@@ -74,20 +74,20 @@ impl GameActions {
     }
 }
 
-impl Into<Option<InputEvent>> for &GameActions {
-    fn into(self) -> Option<InputEvent> {
+impl Into<Option<UserInput>> for &GameActions {
+    fn into(self) -> Option<UserInput> {
         match self {
-            GameActions::Left | GameActions::TwoLeft => Some(InputEvent::Left),
-            GameActions::Right | GameActions::TwoRight => Some(InputEvent::Right),
+            GameActions::Left | GameActions::TwoLeft => Some(UserInput::Left),
+            GameActions::Right | GameActions::TwoRight => Some(UserInput::Right),
             GameActions::RotateClockwise | GameActions::TwoRotateClockwise => {
-                Some(InputEvent::RotateClockwise)
+                Some(UserInput::RotateClockwise)
             }
-            GameActions::DropSoft | GameActions::TwoDropSoft => Some(InputEvent::DropSoft),
+            GameActions::DropSoft | GameActions::TwoDropSoft => Some(UserInput::DropSoft),
             GameActions::DropHard | GameActions::OneDropHard | GameActions::TwoDropHard => {
-                Some(InputEvent::DropHard)
+                Some(UserInput::DropHard)
             }
             GameActions::Hold | GameActions::OneHold | GameActions::TwoHold => {
-                Some(InputEvent::Hold)
+                Some(UserInput::Hold)
             }
             GameActions::Debug => None,
         }

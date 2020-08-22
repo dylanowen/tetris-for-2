@@ -3,20 +3,20 @@ use serde::{Deserialize, Serialize};
 /// Events over the wire
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum NetworkEvent {
-    GameRx(GameRxEvent),
+    GameRx(TetrisIn),
 }
 
 /// Events coming into our game
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum GameRxEvent {
+pub enum TetrisIn {
     Start(u64),
-    Input(InputEvent),
-    Tick(u64),
+    Tick,
     AddRows(usize),
+    User(UserInput),
 }
 
 #[derive(Deserialize, Serialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum InputEvent {
+pub enum UserInput {
     Left,
     Right,
     RotateClockwise,
@@ -27,8 +27,10 @@ pub enum InputEvent {
 
 /// Events coming out of our game
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum GameTxEvent {
-    RxEvent(GameRxEvent),
-    RemovedRow,
+pub enum TetrisOut {
+    // returns all the valid input that was passed to the simulation
+    ValidIn(TetrisIn),
+    LockedPiece,
+    RemovedRows(usize),
     Lose,
 }

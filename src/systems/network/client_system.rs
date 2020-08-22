@@ -7,14 +7,14 @@ use amethyst::shrev::{EventChannel, ReaderId};
 use crossbeam::channel::{Receiver, Sender};
 use log::error;
 
-use crate::events::GameRxEvent;
+use crate::events::TetrisIn;
 use crate::systems::network::{forward_events, handle_message};
 use crate::systems::utils::KnownSystem;
 use crate::systems::KnownSystems;
 
 pub struct ClientSystem {
-    player_out_tx: Receiver<GameRxEvent>,
-    opponent_in_rx: Sender<GameRxEvent>,
+    player_out_tx: Receiver<TetrisIn>,
+    opponent_in_rx: Sender<TetrisIn>,
     server_address: SocketAddr,
     reader: ReaderId<NetworkSimulationEvent>,
 }
@@ -46,8 +46,8 @@ impl<'s> System<'s> for ClientSystem {
 }
 
 pub struct ClientSystemDesc {
-    pub player_out_tx: Receiver<GameRxEvent>,
-    pub opponent_in_rx: Sender<GameRxEvent>,
+    pub player_out_tx: Receiver<TetrisIn>,
+    pub opponent_in_rx: Sender<TetrisIn>,
     pub server_address: SocketAddr,
 }
 
