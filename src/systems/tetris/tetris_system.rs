@@ -16,20 +16,14 @@ use rand::{Rng, SeedableRng};
 use crate::events::{TetrisIn, TetrisOut, UserInput};
 use crate::sprite_loader::Sprites;
 use crate::sprite_loader::PIXEL_DIMENSION as ACTUAL_PIXEL_DIMENSION;
-use crate::systems::tetris::{BoardPixel, Piece, PixelColor, Rotation, Tetrimino};
+use crate::systems::tetris::board::Board;
+use crate::systems::tetris::{
+    BoardPixel, Piece, Rotation, Tetrimino, BOARD_WIDTH, PIXEL_DIMENSION, VISIBLE_HEIGHT,
+    VISIBLE_WIDTH,
+};
 use crate::ExpectSender;
 
 const RENDER_BOUNDING_BOX: bool = false;
-
-const STAGING_HEIGHT: usize = 10;
-
-const VISIBLE_WIDTH: usize = 10;
-const VISIBLE_HEIGHT: usize = 20;
-
-pub const BOARD_WIDTH: usize = VISIBLE_WIDTH;
-const BOARD_HEIGHT: usize = VISIBLE_HEIGHT + STAGING_HEIGHT;
-
-pub const PIXEL_DIMENSION: f32 = 50.;
 
 struct UpdatedState {
     board_changed: bool,
@@ -55,7 +49,7 @@ impl UpdatedState {
 pub struct TetrisGameSystem {
     running: bool,
     piece: Option<Piece>,
-    board_state: [[BoardPixel; BOARD_HEIGHT]; BOARD_WIDTH],
+    board: Board,
     board_entities: [[Entity; VISIBLE_HEIGHT]; VISIBLE_WIDTH],
     piece_bag: Vec<Tetrimino>,
     rng: StdRng,
@@ -85,13 +79,11 @@ impl TetrisGameSystem {
     }
 
     fn handle_event(&mut self, event: TetrisIn) -> UpdatedState {
-        //debug!("Received event: {:?}", event);
-
         match event {
             TetrisIn::Start(seed) => {
                 self.running = true;
                 // clear our board
-                self.board_state = [[BoardPixel::Empty; BOARD_HEIGHT]; BOARD_WIDTH];
+                self.board = Board::new();
                 self.rng = StdRng::seed_from_u64(seed);
 
                 UpdatedState::input(true, TetrisIn::Start(seed))
@@ -125,22 +117,14 @@ impl TetrisGameSystem {
             let (valid_change, lock_piece) = match event {
                 UserInput::Left => {
                     piece.offset.0 -= 1;
-                    (!self.check_collision(&piece), false)
+                    (!self.board.check_collision(&piece), false)
                 }
                 UserInput::Right => {
                     piece.offset.0 += 1;
-                    (!self.check_collision(&piece), false)
+                    (!self.board.check_collision(&piece), false)
                 }
                 UserInput::RotateClockwise => {
-                    let mut valid_rotated_piece = None;
-                    for rotated_piece in piece.rotate(Rotation::Clockwise) {
-                        if !self.check_collision(&rotated_piece) {
-                            valid_rotated_piece = Some(rotated_piece);
-                            break;
-                        }
-                    }
-
-                    match valid_rotated_piece {
+                    match piece.rotate(Rotation::Clockwise, &self.board) {
                         Some(rotated_piece) => {
                             piece = rotated_piece;
                             (true, false)
@@ -152,7 +136,7 @@ impl TetrisGameSystem {
                     piece.offset.1 -= 1;
 
                     // if we collided with something move the piece back and lock it
-                    let lock = self.check_collision(&piece);
+                    let lock = self.board.check_collision(&piece);
                     if lock {
                         piece.offset.1 += 1;
                     }
@@ -206,7 +190,7 @@ impl TetrisGameSystem {
             piece.offset.1 -= 1;
 
             // if we collided with something move the piece back and lock it
-            let lock = self.check_collision(&piece);
+            let lock = self.board.check_collision(&piece);
             if lock {
                 piece.offset.1 += 1;
                 self.lock_piece(piece);
@@ -232,7 +216,7 @@ impl TetrisGameSystem {
             let next_tetrimino = self.piece_bag.remove(next_index);
 
             let new_piece = Piece::new(next_tetrimino, (5, 20));
-            if self.check_collision(&new_piece) {
+            if self.board.check_collision(&new_piece) {
                 self.running = false;
                 self.out_tx.send_expect(TetrisOut::Lose);
             } else {
@@ -265,7 +249,7 @@ impl TetrisGameSystem {
                 if piece.bounding_box[x][y] {
                     let board_y = y as isize + piece.offset.1;
 
-                    self.set_board_pixel(
+                    self.board.set(
                         board_x,
                         board_y,
                         BoardPixel::Filled(piece.tetrimino.color()),
@@ -283,20 +267,14 @@ impl TetrisGameSystem {
                 let board_y = board_y as usize;
 
                 for x in 0..BOARD_WIDTH {
-                    if self.board_state[x][board_y] == BoardPixel::Empty {
+                    if self.board.get(x as isize, board_y as isize) == BoardPixel::Empty {
                         // we found an empty pixel so skip this row
                         continue 'check_row;
                     }
                 }
 
+                self.board.clear_row(board_y);
                 cleared_lines += 1;
-
-                for x in 0..BOARD_WIDTH {
-                    for y in board_y..BOARD_HEIGHT - 1 {
-                        self.board_state[x][y] = self.board_state[x][y + 1]
-                    }
-                    self.board_state[x][BOARD_HEIGHT - 1] = BoardPixel::Empty;
-                }
             }
         }
 
@@ -306,8 +284,7 @@ impl TetrisGameSystem {
             // todo do we need to make sure this event is ordered in any way?
             // we cleared some rows
             self.out_tx
-                .send(TetrisOut::RemovedRows(cleared_lines))
-                .expect("Always send");
+                .send_expect(TetrisOut::RemovedRows(cleared_lines));
         }
 
         //self.add_pending_rows();
@@ -316,48 +293,15 @@ impl TetrisGameSystem {
     fn add_rows_event(&mut self, count: usize) -> UpdatedState {
         assert_ne!(count, 0);
 
-        // move our rows up
-        for x in 0..BOARD_WIDTH {
-            for y in (count..BOARD_HEIGHT).rev() {
-                self.board_state[x][y] = self.board_state[x][y - count]
-            }
-        }
-        // add in our filled rows
-        for y in 0..count {
-            let empty_space = self.rng.gen_range(0, BOARD_WIDTH);
-            for x in 0..BOARD_WIDTH {
-                self.board_state[x][y] = if x != empty_space {
-                    BoardPixel::Filled(PixelColor::Gray)
-                } else {
-                    BoardPixel::Empty
-                };
-            }
-        }
+        self.board.fill_rows(count, &mut self.rng);
 
         UpdatedState::input(true, TetrisIn::AddRows(count))
-    }
-
-    fn check_collision(&self, piece: &Piece) -> bool {
-        for x in 0..piece.bounding_box.len() {
-            for y in 0..piece.bounding_box[x].len() {
-                if piece.bounding_box[x][y] {
-                    let board_x = x as isize + piece.offset.0;
-                    let board_y = y as isize + piece.offset.1;
-
-                    if let BoardPixel::Filled(_) = self.board_pixel(board_x, board_y) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
     }
 
     fn drop_hard_piece(&self, mut piece: Piece) -> Piece {
         piece.offset.1 -= 1;
 
-        while !self.check_collision(&piece) {
+        while !self.board.check_collision(&piece) {
             piece.offset.1 -= 1;
         }
 
@@ -372,24 +316,6 @@ impl TetrisGameSystem {
         } else {
             None
         }
-    }
-
-    fn set_board_pixel(&mut self, x: isize, y: isize, pixel: BoardPixel) {
-        if Self::on_board(x, y) {
-            self.board_state[x as usize][y as usize] = pixel;
-        }
-    }
-
-    fn board_pixel(&self, x: isize, y: isize) -> BoardPixel {
-        if Self::on_board(x, y) {
-            self.board_state[x as usize][y as usize]
-        } else {
-            BoardPixel::Filled(PixelColor::Gray)
-        }
-    }
-
-    fn on_board(x: isize, y: isize) -> bool {
-        x >= 0 && x < BOARD_WIDTH as isize && y >= 0 && y < BOARD_HEIGHT as isize
     }
 
     fn render_piece(
@@ -437,7 +363,7 @@ impl<'s> System<'s> for TetrisGameSystem {
             for x in 0..VISIBLE_WIDTH {
                 for y in 0..VISIBLE_HEIGHT {
                     let entity = self.board_entities[x][y];
-                    let tint_color = self.board_state[x][y].into();
+                    let tint_color = self.board.get(x as isize, y as isize).into();
 
                     let tint = tint_storage
                         .get_mut(entity)
@@ -516,7 +442,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
 
         debug!("loading at {}, {}", x_offset, y_offset);
 
-        let board_state = [[BoardPixel::Empty; BOARD_HEIGHT]; BOARD_WIDTH];
+        let board_state = Board::new();
         let mut board_entities = [[dummy_entity; VISIBLE_HEIGHT]; VISIBLE_WIDTH];
         // // build our side borders
         // for &x in &[0, BOARD_WIDTH - 1] {
@@ -536,7 +462,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
                     y,
                     x_offset,
                     y_offset,
-                    board_state[x][y],
+                    board_state.get(x as isize, y as isize),
                     &pixel_sprite,
                     world,
                 );
@@ -546,7 +472,7 @@ impl<'a, 'b> SystemDesc<'a, 'b, TetrisGameSystem> for TetrisGameSystemDesc {
         TetrisGameSystem {
             running: false,
             piece: None,
-            board_state,
+            board: board_state,
             board_entities,
             piece_bag: vec![],
             rng: StdRng::seed_from_u64(0),

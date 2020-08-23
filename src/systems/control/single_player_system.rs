@@ -6,7 +6,8 @@ use crossbeam::channel;
 
 use crate::systems::control::{LocalPlayer, SinglePlayer, MARGIN};
 use crate::systems::input_system::InputSystemDesc;
-use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, BOARD_WIDTH, PIXEL_DIMENSION};
+use crate::systems::tetris::tetris_system::TetrisGameSystemDesc;
+use crate::systems::tetris::{PIXEL_DIMENSION, VISIBLE_WIDTH};
 use crate::systems::utils::{KnownSystem, WithKnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
 
@@ -52,7 +53,10 @@ pub fn setup<'a, 'b>(
         })
         .with_system_desc(
             TetrisGameSystemDesc {
-                position: (MARGIN + (PIXEL_DIMENSION * BOARD_WIDTH as f32) / 2., MARGIN),
+                position: (
+                    MARGIN + (PIXEL_DIMENSION * VISIBLE_WIDTH as f32) / 2.,
+                    MARGIN,
+                ),
                 in_rx: player_in_rx,
                 out_tx: player_out_tx,
             },

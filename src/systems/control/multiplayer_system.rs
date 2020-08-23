@@ -15,7 +15,8 @@ use crate::systems::control::{sent_pieces, LocalAttackPlayer, LocalPlayer, MARGI
 use crate::systems::input_system::InputSystemDesc;
 use crate::systems::network::client_system::ClientSystemDesc;
 use crate::systems::network::server_system::ServerSystemDesc;
-use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, BOARD_WIDTH, PIXEL_DIMENSION};
+use crate::systems::tetris::tetris_system::TetrisGameSystemDesc;
+use crate::systems::tetris::{PIXEL_DIMENSION, VISIBLE_WIDTH};
 use crate::systems::utils::{KnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
 use crate::ExpectSender;
@@ -126,7 +127,10 @@ pub fn setup<'a, 'b>(
         )
         .with_system_desc(
             TetrisGameSystemDesc {
-                position: ((PIXEL_DIMENSION * BOARD_WIDTH as f32) + MARGIN * 2., MARGIN),
+                position: (
+                    (PIXEL_DIMENSION * VISIBLE_WIDTH as f32) + MARGIN * 2.,
+                    MARGIN,
+                ),
                 in_rx: opponent_in_net_rx,
                 out_tx: opponent_out_tx,
             },

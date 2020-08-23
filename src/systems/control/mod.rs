@@ -5,7 +5,7 @@ use amethyst::GameDataBuilder;
 
 pub use player::*;
 
-use crate::systems::tetris::tetris_system::PIXEL_DIMENSION;
+use crate::systems::tetris::PIXEL_DIMENSION;
 
 mod double_player_system;
 mod multiplayer_system;
