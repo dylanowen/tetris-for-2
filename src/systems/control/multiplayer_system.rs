@@ -163,7 +163,8 @@ pub fn setup<'a, 'b>(
         GameType::Client(server_address) => {
             state = State::ClientWaiting;
 
-            let socket = LaminarSocket::bind_any()?;
+            // make sure we're binding a socket on our external interface
+            let socket = LaminarSocket::bind("0.0.0.0:0")?;
 
             game_data
                 .with_bundle(LaminarNetworkBundle::new(Some(socket)))?

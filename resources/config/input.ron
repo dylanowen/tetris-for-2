@@ -9,7 +9,7 @@
         Hold: [ [Key(X)] ],
 
         OneDropHard: [ [Key(Slash)] ],
-        OneHold: [ [Key(RShift)] ],
+        OneHold: [ [Key(Period)] ],
 
         TwoLeft: [ [Key(D)] ],
         TwoRight: [ [Key(G)] ],

@@ -21,6 +21,12 @@ release: lint
 profiler: lint
 	cargo build --release --features="metal,release,profiler"
 
+single: lint
+	cargo run --release --features="metal" -- single
+
+double: lint
+	cargo run --release --features="metal" -- double
+
 server: lint
 	cargo run --release --features="metal" -- server 0.0.0.0:3456
 
