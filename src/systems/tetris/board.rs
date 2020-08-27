@@ -1,6 +1,7 @@
-use crate::systems::tetris::{BoardPixel, Piece, PixelColor, BOARD_HEIGHT, BOARD_WIDTH};
 use rand::rngs::StdRng;
 use rand::Rng;
+
+use crate::systems::tetris::{BoardPixel, Piece, PixelColor, BOARD_HEIGHT, BOARD_WIDTH};
 
 pub struct Board {
     pixels: [[BoardPixel; BOARD_WIDTH]; BOARD_HEIGHT],
@@ -14,16 +15,12 @@ impl Board {
     }
 
     pub fn check_collision(&self, piece: &Piece) -> bool {
-        for x in 0..piece.bounding_box.len() {
-            for y in 0..piece.bounding_box[x].len() {
-                if piece.bounding_box[x][y] {
-                    let board_x = x as isize + piece.offset.0;
-                    let board_y = y as isize + piece.offset.1;
+        for (x, y) in piece.filled_pixels() {
+            let board_x = x as isize + piece.offset.0;
+            let board_y = y as isize + piece.offset.1;
 
-                    if let BoardPixel::Filled(_) = self.get(board_x, board_y) {
-                        return true;
-                    }
-                }
+            if let BoardPixel::Filled(_) = self.get(board_x, board_y) {
+                return true;
             }
         }
 

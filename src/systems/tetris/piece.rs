@@ -19,23 +19,22 @@ impl Piece {
         }
     }
 
-    fn filled_pixels(&self) -> impl Iterator<Item = (usize, usize, bool)> + '_ {
+    pub fn filled_pixels(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.bounding_box
             .iter()
             .enumerate()
-            .map(|(x, column)| column.iter().enumerate().map(move |(y, set)| (x, y, *set)))
+            .map(|(x, column)| {
+                column
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(y, set)| if *set { Some((x, y)) } else { None })
+            })
             .flatten()
     }
 
     pub fn rotate(&self, rotation: Rotation, board: &Board) -> Option<Piece> {
         self.iter_rotate(rotation)
-            .filter_map(|rotated_piece| {
-                if !board.check_collision(&rotated_piece) {
-                    Some(rotated_piece)
-                } else {
-                    None
-                }
-            })
+            .filter(|rotated_piece| !board.check_collision(&rotated_piece))
             .next()
     }
 

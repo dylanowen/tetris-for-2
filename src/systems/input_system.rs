@@ -118,7 +118,10 @@ impl<'s> System<'s> for InputSystem {
         }
 
         self.one.submit_down_keys(&time);
-        self.two.as_mut().map(|p| p.submit_down_keys(&time));
+
+        if let Some(p) = self.two.as_mut() {
+            p.submit_down_keys(&time)
+        }
     }
 }
 

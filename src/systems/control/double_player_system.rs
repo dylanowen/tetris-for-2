@@ -6,8 +6,8 @@ use crossbeam::channel;
 
 use crate::systems::control::{LocalAttackPlayer, LocalPlayer, MARGIN};
 use crate::systems::input_system::InputSystemDesc;
-use crate::systems::tetris::tetris_system::TetrisGameSystemDesc;
-use crate::systems::tetris::{PIXEL_DIMENSION, VISIBLE_WIDTH};
+use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, TetrisRenderingConfig};
+use crate::systems::tetris::RENDERED_WIDTH;
 use crate::systems::utils::{KnownSystem, WithKnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
 
@@ -70,13 +70,11 @@ pub fn setup<'a, 'b>(
         })
         .with_system_desc(
             TetrisGameSystemDesc {
-                position: (
-                    (PIXEL_DIMENSION * VISIBLE_WIDTH as f32) + MARGIN * 2.,
-                    MARGIN,
-                ),
+                position: (RENDERED_WIDTH + MARGIN * 2., MARGIN),
                 // position: (MARGIN, MARGIN),
                 in_rx: one_in_rx,
                 out_tx: one_out_tx,
+                config: TetrisRenderingConfig::default(),
             },
             "game_system_player_one",
             &[KnownSystems::SpriteLoader.into()],
@@ -87,6 +85,7 @@ pub fn setup<'a, 'b>(
                 position: (MARGIN, MARGIN),
                 in_rx: two_in_rx,
                 out_tx: two_out_tx,
+                config: TetrisRenderingConfig::default(),
             },
             "game_system_player_two",
             &[KnownSystems::SpriteLoader.into()],

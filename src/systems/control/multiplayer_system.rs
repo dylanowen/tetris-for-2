@@ -15,8 +15,8 @@ use crate::systems::control::{sent_pieces, LocalAttackPlayer, LocalPlayer, MARGI
 use crate::systems::input_system::InputSystemDesc;
 use crate::systems::network::client_system::ClientSystemDesc;
 use crate::systems::network::server_system::ServerSystemDesc;
-use crate::systems::tetris::tetris_system::TetrisGameSystemDesc;
-use crate::systems::tetris::{PIXEL_DIMENSION, VISIBLE_WIDTH};
+use crate::systems::tetris::tetris_system::{TetrisGameSystemDesc, TetrisRenderingConfig};
+use crate::systems::tetris::RENDERED_WIDTH;
 use crate::systems::utils::{KnownSystem, WithKnownSystemDesc};
 use crate::systems::{GameType, KnownSystems};
 use crate::ExpectSender;
@@ -121,18 +121,21 @@ pub fn setup<'a, 'b>(
                 position: (MARGIN, MARGIN),
                 in_rx: player_in_rx,
                 out_tx: player_out_tx,
+                config: TetrisRenderingConfig::default(),
             },
             "game_system_player",
             &[KnownSystems::SpriteLoader.into()],
         )
         .with_system_desc(
             TetrisGameSystemDesc {
-                position: (
-                    (PIXEL_DIMENSION * VISIBLE_WIDTH as f32) + MARGIN * 2.,
-                    MARGIN,
-                ),
+                position: (RENDERED_WIDTH + MARGIN * 2., MARGIN),
                 in_rx: opponent_in_net_rx,
                 out_tx: opponent_out_tx,
+                config: TetrisRenderingConfig {
+                    show_ghost: false,
+                    show_next: false,
+                    show_hold: false,
+                },
             },
             "game_system_opponent",
             &[KnownSystems::SpriteLoader.into()],
