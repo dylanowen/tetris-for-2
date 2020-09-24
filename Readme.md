@@ -1,4 +1,4 @@
-# Tetris For Two
+# Tetris For Two ♥
 
 ## References
 * [Tetris Guidelines](https://tetris.wiki/Tetris_Guideline)
